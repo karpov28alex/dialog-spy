@@ -18,9 +18,13 @@ const pages={overview:'Обзор',users:'Пользователи',links:'Сс�
 const icons={overview:'⌂',users:'👥',links:'🔗',payments:'₽',errors:'!',system:'⚙'};
 const pathParts=()=> (location.hash.slice(1)||'overview').split('/').filter(Boolean);
 const current=()=>pathParts()[0]||'overview';
+function closeAdminOverlays(){
+ document.querySelectorAll('#link-modal,#user-sheet,.detail-backdrop,.admin-detail-backdrop,#admin-media-viewer').forEach(x=>x.remove());
+}
 function shell(content,active=current(),title=pages[active]||'Админ-панель'){
- root.innerHTML=`<div class="admin-app no-sidebar"><main class="admin-content"><header class="admin-mobile-head admin-head-only"><span></span><b>${esc(title)}</b><span class="status-dot">●</span></header>${content}</main><nav class="admin-bottom">${Object.keys(pages).map(k=>`<button data-page="${k}" class="${active===k?'active':''}"><i>${icons[k]}</i><span>${pages[k]}</span></button>`).join('')}</nav></div>`;
- document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>{location.hash=b.dataset.page});
+ closeAdminOverlays();
+ root.innerHTML=`<div class="admin-app no-sidebar"><main class="admin-content"><header class="admin-mobile-head admin-head-only"><span></span><b>${esc(title)}</b><span class="status-dot">●</span></header>${content}</main><nav class="admin-bottom">${Object.keys(pages).map(k=>`<button type="button" data-page="${k}" class="${active===k?'active':''}"><i>${icons[k]}</i><span>${pages[k]}</span></button>`).join('')}</nav></div>`;
+ document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>{closeAdminOverlays();location.hash=b.dataset.page});
 }
 function loading(title){shell(`<section class="admin-page"><div class="page-head"><div><small>АДМИН-ПАНЕЛЬ</small><h1>${esc(title)}</h1></div></div><div class="admin-skeleton">${'<i></i>'.repeat(8)}</div></section>`,current(),title)}
 function metric(title,value,sub='',tone='purple'){return `<article class="admin-metric ${tone}"><span>${esc(title)}</span><b>${typeof value==='string'?esc(value):num(value)}</b><small>${esc(sub)}</small></article>`}
@@ -51,7 +55,59 @@ function mediaLabel(m){const label=({photo:'Фотография',video:'Вид�
 async function adminChat(userId,dialogId){loading('Диалог');const d=await api(`/dialogs/${dialogId}`);shell(`<section class="admin-page admin-chat-page"><div class="admin-chat-head"><a class="admin-back" href="#users/${userId}/dialogs" aria-label="Назад">‹</a><div><b>${esc(d.dialog.title||'Диалог')}</b><small>${d.dialog.username?'@'+esc(d.dialog.username):`${d.messages.length} сообщений`}</small></div></div><div class="admin-chat-wall">${d.messages.map(m=>`<article class="admin-message ${m.is_outgoing?'out':'in'} ${m.is_deleted?'deleted':''}"><div>${(m.media||[]).map(mediaLabel).join('')}${m.text?`<p>${esc(m.text)}</p>`:''}<footer>${m.edited_at?'изменено · ':''}${tm(m.sent_at)}${m.is_deleted?' · удалено':''}</footer></div></article>`).join('')||'<div class="chart-empty">Сообщений нет</div>'}</div></section>`,'users','Диалог');document.querySelectorAll('[data-admin-media]').forEach(b=>b.onclick=()=>openAdminMedia(b.dataset.adminMedia,b.dataset.mediaType,b))}
 
 async function links(){loading('Ссылки');const rows=await api('/referral-links');const totalSpend=rows.reduce((a,x)=>a+x.spend_minor,0),totalUsers=rows.reduce((a,x)=>a+x.arrived,0),totalVip=rows.reduce((a,x)=>a+x.vip,0),daily={};rows.forEach(x=>(x.daily||[]).forEach(d=>daily[d.date]=(daily[d.date]||0)+d.count));const dailyRows=Object.entries(daily).map(([date,count])=>({date,count}));shell(`<section class="admin-page links-page"><div class="page-head"><div><small>РЕКЛАМНАЯ АНАЛИТИКА</small><h1>Ссылки</h1><p>Отслеживание рекламных размещений и конверсии.</p></div><button class="primary-action" id="new-link">Создать ссылку</button></div><div class="admin-metrics">${metric('Потрачено',(totalSpend/100).toLocaleString('ru-RU')+' ₽','все кампании','gold')}${metric('Пришло',totalUsers,'по рекламным ссылкам')}${metric('VIP',totalVip,totalUsers?Math.round(totalVip/totalUsers*100)+'% конверсия':'нет данных','green')}${metric('Цена VIP',totalVip?(totalSpend/100/totalVip).toFixed(2)+' ₽':'—','средняя')}</div><div class="chart-grid"><article class="admin-card wide"><div class="card-head"><h2>Переходы по дням</h2><span>Все рекламные ссылки</span></div>${lineChart(dailyRows,'count','Пришедшие')}</article><article class="admin-card"><div class="card-head"><h2>VIP по источникам</h2><span>Количество оплативших</span></div>${barChart(rows.map(x=>({source:x.source,count:x.vip})),'source')}</article><article class="admin-card"><div class="card-head"><h2>Стоимость VIP</h2><span>В рублях</span></div>${barChart(rows.map(x=>({source:x.source,count:x.cost_per_vip})),'source')}</article></div><div class="referral-list">${rows.map(x=>`<article class="referral-card" data-link-id="${x.id}"><header><div><b>${esc(x.source)}</b><small>${esc([x.campaign,x.placement].filter(Boolean).join(' · ')||'Без уточнения')}</small></div><em>${(x.spend_minor/100).toLocaleString('ru-RU')} ₽</em></header><div class="referral-stats"><span><b>${x.arrived}</b><small>Пришло</small></span><span><b>${x.trial}</b><small>В триале</small></span><span><b>${x.vip}</b><small>VIP</small></span><span><b>${x.blocked}</b><small>Заблокировали</small></span></div><div class="referral-costs"><span>Цена пользователя <b>${x.cost_per_user} ₽</b></span><span>Цена VIP <b>${x.cost_per_vip} ₽</b></span><span>VIP-конверсия <b>${x.conversion_vip}%</b></span></div><button class="copy-link" data-copy="${esc(x.url)}">Скопировать ссылку</button></article>`).join('')||'<div class="chart-empty">Ссылок пока нет</div>'}</div></section>`,'links');document.getElementById('new-link').onclick=createLinkModal;document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=async e=>{e.stopPropagation();await navigator.clipboard.writeText(b.dataset.copy);toast('Ссылка скопирована')});document.querySelectorAll('[data-link-id]').forEach(c=>c.onclick=e=>{if(e.target.closest('[data-copy]'))return;openLinkDetail(c.dataset.linkId)});bindCharts()}
-function createLinkModal(){document.body.insertAdjacentHTML('beforeend',`<div class="detail-backdrop" id="link-modal"><div class="admin-detail"><header><div><small>НОВАЯ РЕКЛАМНАЯ ССЫЛКА</small><h2>Создать ссылку</h2></div><button id="link-close">×</button></header><section><label>Источник<input id="link-source" placeholder="Например: Telegram-канал Новости"></label><label>Кампания<input id="link-campaign" placeholder="Название рекламной кампании"></label><label>Размещение<input id="link-placement" placeholder="Пост, сторис, закреп"></label><label>Стоимость закупа, ₽<input id="link-spend" type="number" min="0" step="0.01" value="0"></label><label>Комментарий<textarea id="link-notes" placeholder="Дополнительная информация"></textarea></label><button class="primary-action" id="link-save">Создать</button></section></div></div>`);document.getElementById('link-close').onclick=()=>document.getElementById('link-modal').remove();document.getElementById('link-save').onclick=async e=>{e.target.disabled=true;try{const d=await api('/referral-links',{method:'POST',body:JSON.stringify({source:document.getElementById('link-source').value,campaign:document.getElementById('link-campaign').value,placement:document.getElementById('link-placement').value,spend_rub:Number(document.getElementById('link-spend').value||0),notes:document.getElementById('link-notes').value})});await navigator.clipboard.writeText(d.deep_link);toast('Ссылка создана и скопирована');document.getElementById('link-modal').remove();links()}catch(err){toast(err.message,true)}finally{e.target.disabled=false}}}
+function createLinkModal(){
+ if(document.getElementById('link-modal'))return;
+ document.body.insertAdjacentHTML('beforeend',`<div class="detail-backdrop open" id="link-modal"><div class="admin-detail"><header><div><small>НОВАЯ РЕКЛАМНАЯ ССЫЛКА</small><h2>Создать ссылку</h2></div><button type="button" id="link-close">×</button></header><section><label>Источник<input id="link-source" placeholder="Например: Telegram-канал Новости"></label><label>Кампания<input id="link-campaign" placeholder="Название рекламной кампании"></label><label>Размещение<input id="link-placement" placeholder="Пост, сторис, закреп"></label><label>Стоимость закупа, ₽<input id="link-spend" type="number" min="0" step="0.01" value="0"></label><label>Комментарий<textarea id="link-notes" placeholder="Дополнительная информация"></textarea></label><button type="button" class="primary-action" id="link-save">Создать</button></section></div></div>`);
+
+ const modal=document.getElementById('link-modal');
+ const close=()=>modal?.remove();
+
+ document.getElementById('link-close').onclick=close;
+ modal.onclick=e=>{if(e.target===modal)close()};
+
+ document.getElementById('link-save').onclick=async e=>{
+   const button=e.currentTarget;
+   const source=document.getElementById('link-source').value.trim();
+
+   if(!source){
+     toast('Укажите источник рекламы',true);
+     document.getElementById('link-source').focus();
+     return;
+   }
+
+   button.disabled=true;
+
+   try{
+     const d=await api('/referral-links',{
+       method:'POST',
+       body:JSON.stringify({
+         source,
+         campaign:document.getElementById('link-campaign').value.trim(),
+         placement:document.getElementById('link-placement').value.trim(),
+         spend_rub:Number(document.getElementById('link-spend').value||0),
+         notes:document.getElementById('link-notes').value.trim()
+       })
+     });
+
+     close();
+     toast('Ссылка успешно создана');
+
+     const url=d.deep_link||d.url||'';
+     if(url){
+       try{
+         await navigator.clipboard.writeText(url);
+         toast('Ссылка скопирована');
+       }catch{}
+     }
+
+     await links();
+   }catch(err){
+     toast(err.message,true);
+   }finally{
+     button.disabled=false;
+   }
+ };
+}
 async function openLinkDetail(id){const d=await api(`/referral-links/${id}`);const back=document.createElement('div');back.className='detail-backdrop';back.innerHTML=`<div class="admin-detail referral-detail"><header><div><small>РЕКЛАМНАЯ ССЫЛКА</small><h2>${esc(d.source)}</h2><p>${esc([d.campaign,d.placement].filter(Boolean).join(' · '))}</p></div><button class="detail-close">×</button></header><div class="detail-metrics">${metric('Пришло',d.arrived)}${metric('Триал',d.trial)}${metric('VIP',d.vip,'','green')}${metric('Заблокировали',d.blocked,'','red')}${metric('Цена пользователя',d.cost_per_user+' ₽')}${metric('Цена VIP',d.cost_per_vip+' ₽')}</div><section><h3>Пользователи</h3>${d.users.map(u=>`<div class="detail-row"><span><b>${esc(u.name||u.telegram_id)}</b><small>${u.username?'@'+esc(u.username)+' · ':''}${esc(statusLabel(u.status))}${u.business_connected?' · Business подключён':''}${u.blocked?' · заблокировал бота':''}</small></span><time>${dt(u.created_at)}</time></div>`).join('')||'<p class="muted">Переходов пока нет</p>'}</section></div>`;document.body.append(back);back.querySelector('.detail-close').onclick=()=>back.remove()}
 
 async function payments(){loading('Платежи');const rows=await api('/payments');shell(`<section class="admin-page edge-safe"><div class="page-head"><div><small>ФИНАНСЫ</small><h1>Платежи</h1><p>${rows.length} последних операций</p></div></div><div class="mobile-list payment-cards">${rows.length?rows.map(p=>`<article><span><b>${(p.amount_minor/100).toFixed(2)} ${esc(p.currency)}</b><small>Пользователь #${p.owner_id}${p.recurring?' · рекуррентный':''}</small></span><em>${esc(statusLabel(p.status))}</em><time>${dt(p.created_at)}</time></article>`).join(''):'<div class="chart-empty">Платежей пока нет</div>'}</div></section>`,'payments')}
