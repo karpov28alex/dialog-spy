@@ -1,0 +1,64 @@
+name: dialog-spy
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: dialogspy
+      POSTGRES_USER: dialogspy
+      POSTGRES_PASSWORD: dialogspy
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dialogspy -d dialogspy"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes: [redis_data:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    volumes: [media_data:/data/media]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
+
+  worker:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    command: python -m app.worker
+    volumes: [media_data:/data/media]
+    depends_on:
+      api: {condition: service_healthy}
+      redis: {condition: service_healthy}
+
+  web:
+    build: ./web
+    restart: unless-stopped
+    ports: ["127.0.0.1:8081:80"]
+    depends_on:
+      api: {condition: service_healthy}
+
+volumes:
+  postgres_data:
+  redis_data:
+  media_data:
