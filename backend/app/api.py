@@ -866,6 +866,9 @@ def _referral_stats(link: ReferralLink, users: list[User], bot_username: str) ->
 @router.post("/admin/referral-links")
 async def create_referral_link(data: ReferralLinkCreate, admin: Admin = Depends(current_admin), db: AsyncSession = Depends(get_db)):
     import secrets
+    # Resolve Telegram metadata before the transaction is committed. Otherwise a
+    # temporary getMe failure returns 500 after the link has already been stored.
+    bot_username=(await profile_bot.get_me()).username
     code=secrets.token_urlsafe(9).replace('-','').replace('_','')[:12]
     while await db.scalar(select(ReferralLink).where(ReferralLink.code==code)):
         code=secrets.token_urlsafe(9).replace('-','').replace('_','')[:12]
@@ -873,7 +876,6 @@ async def create_referral_link(data: ReferralLinkCreate, admin: Admin = Depends(
     db.add(row); await db.flush()
     db.add(AdminAudit(admin_id=admin.id,action="create_referral_link",target_type="referral_link",target_id=str(row.id),payload={"source":row.source,"spend_minor":row.spend_minor}))
     await db.commit(); await db.refresh(row)
-    bot_username=(await profile_bot.get_me()).username
     return {"ok":True,"id":row.id,"code":row.code,"deep_link":f"https://t.me/{bot_username}?start=ref_{row.code}"}
 
 @router.get("/admin/referral-links")

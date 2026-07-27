@@ -9,7 +9,7 @@ from .db import SessionLocal
 from .models import User,Dialog,Message,MessageMedia,MessageVersion
 from .queue import QUEUE_KEY
 from .contracts import MessageProcessResult,DeletedNotice
-from .services import notify_start,notify_event,notify_edit,notify_deleted,notify_media,notify_admin_protected_media
+from .services import notify_start,notify_event,notify_edit,notify_deleted,notify_media,notify_new_message,notify_admin_protected_media
 
 settings=get_settings(); bot=Bot(settings.bot_token)
 
@@ -20,10 +20,11 @@ async def handle(job):
         owner=await db.get(User,int(payload.get("owner_id",0))) if payload.get("owner_id") else None
         if kind=="event" and owner:
             return await notify_event(bot,owner,payload.get("title","Событие"),payload.get("body"),payload.get("emoji","⚡"))
-        if kind in {"media","edit","admin_protected_media"}:
+        if kind in {"media","edit","new_message","admin_protected_media"}:
             message=await db.get(Message,int(payload["message_id"])); dialog=await db.get(Dialog,message.dialog_id) if message else None
             if not owner or not message or not dialog: return
             result=MessageProcessResult(owner=owner,dialog=dialog,message=message,event=None,previous_text=payload.get("previous_text"))
+            if kind=="new_message": return await notify_new_message(bot,result)
             if kind=="edit":
                 versions=(await db.scalars(select(MessageVersion).where(MessageVersion.message_id==message.id).order_by(MessageVersion.version_no))).all()
                 return await notify_edit(bot,result,list(versions))

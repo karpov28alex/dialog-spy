@@ -21,6 +21,7 @@ from .services import (
     notify_edit,
     notify_event,
     notify_media,
+    notify_new_message,
     notify_admin_protected_media,
     notify_start,
     register_connection,
@@ -64,6 +65,7 @@ async def webhook(
     start_referral_code: str | None = None
     connection_notification: tuple[object, str] | None = None
     media_notifications: list[tuple[MessageProcessResult, object, bool]] = []
+    new_message_notifications: list[MessageProcessResult] = []
     admin_protected_notifications: list[tuple[MessageProcessResult, object]] = []
     edit_notification: tuple[MessageProcessResult, bool] | None = None
     deleted_notifications: list[tuple[object, bool]] = []
@@ -146,6 +148,7 @@ async def webhook(
                                 notification_settings.hide_preview,
                             )
                             for media in captured_result.media
+                            if media.is_ephemeral_hint
                         )
                     print(
                         "PROTECTED_REPLY_CAPTURED",
@@ -162,8 +165,10 @@ async def webhook(
                     db, result.owner.id
                 )
                 is_own_outgoing = result.message.from_user_id == result.owner.telegram_id
-                if (notification_settings.media_enabled and not result.dialog.is_muted and not is_own_outgoing):
-                    media_notifications.extend((result, media, notification_settings.hide_preview) for media in result.media)
+                # Ordinary attachments belong in the archive only. A copy is sent
+                # to the owner exclusively by the protected-reply flow above.
+                if not result.media and not result.dialog.is_muted and not is_own_outgoing:
+                    new_message_notifications.append(result)
 
         edited_message = update.get("edited_business_message")
         if isinstance(edited_message, dict):
@@ -224,6 +229,13 @@ async def webhook(
             await _queue_or_fallback("event", {"owner_id": result.owner.id, "title": "Медиа сохранено", "body": "Содержимое скрыто настройками приватности", "emoji": "👁"}, lambda result=result: notify_event(bot, result.owner, "Медиа сохранено", "Содержимое скрыто настройками приватности", "👁"))
         else:
             await _queue_or_fallback("media", {"owner_id": result.owner.id, "message_id": result.message.id, "media_id": media.id}, lambda result=result, media=media: notify_media(bot, result, media))
+
+    for result in new_message_notifications:
+        await _queue_or_fallback(
+            "new_message",
+            {"owner_id": result.owner.id, "message_id": result.message.id},
+            lambda result=result: notify_new_message(bot, result),
+        )
 
     if edit_notification:
         result, hide_preview = edit_notification

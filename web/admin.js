@@ -57,7 +57,7 @@ async function adminChat(userId,dialogId){loading('Диалог');const d=await 
 async function links(){loading('Ссылки');const rows=await api('/referral-links');const totalSpend=rows.reduce((a,x)=>a+x.spend_minor,0),totalUsers=rows.reduce((a,x)=>a+x.arrived,0),totalVip=rows.reduce((a,x)=>a+x.vip,0),daily={};rows.forEach(x=>(x.daily||[]).forEach(d=>daily[d.date]=(daily[d.date]||0)+d.count));const dailyRows=Object.entries(daily).map(([date,count])=>({date,count}));shell(`<section class="admin-page links-page"><div class="page-head"><div><small>РЕКЛАМНАЯ АНАЛИТИКА</small><h1>Ссылки</h1><p>Отслеживание рекламных размещений и конверсии.</p></div><button class="primary-action" id="new-link">Создать ссылку</button></div><div class="admin-metrics">${metric('Потрачено',(totalSpend/100).toLocaleString('ru-RU')+' ₽','все кампании','gold')}${metric('Пришло',totalUsers,'по рекламным ссылкам')}${metric('VIP',totalVip,totalUsers?Math.round(totalVip/totalUsers*100)+'% конверсия':'нет данных','green')}${metric('Цена VIP',totalVip?(totalSpend/100/totalVip).toFixed(2)+' ₽':'—','средняя')}</div><div class="chart-grid"><article class="admin-card wide"><div class="card-head"><h2>Переходы по дням</h2><span>Все рекламные ссылки</span></div>${lineChart(dailyRows,'count','Пришедшие')}</article><article class="admin-card"><div class="card-head"><h2>VIP по источникам</h2><span>Количество оплативших</span></div>${barChart(rows.map(x=>({source:x.source,count:x.vip})),'source')}</article><article class="admin-card"><div class="card-head"><h2>Стоимость VIP</h2><span>В рублях</span></div>${barChart(rows.map(x=>({source:x.source,count:x.cost_per_vip})),'source')}</article></div><div class="referral-list">${rows.map(x=>`<article class="referral-card" data-link-id="${x.id}"><header><div><b>${esc(x.source)}</b><small>${esc([x.campaign,x.placement].filter(Boolean).join(' · ')||'Без уточнения')}</small></div><em>${(x.spend_minor/100).toLocaleString('ru-RU')} ₽</em></header><div class="referral-stats"><span><b>${x.arrived}</b><small>Пришло</small></span><span><b>${x.trial}</b><small>В триале</small></span><span><b>${x.vip}</b><small>VIP</small></span><span><b>${x.blocked}</b><small>Заблокировали</small></span></div><div class="referral-costs"><span>Цена пользователя <b>${x.cost_per_user} ₽</b></span><span>Цена VIP <b>${x.cost_per_vip} ₽</b></span><span>VIP-конверсия <b>${x.conversion_vip}%</b></span></div><button class="copy-link" data-copy="${esc(x.url)}">Скопировать ссылку</button></article>`).join('')||'<div class="chart-empty">Ссылок пока нет</div>'}</div></section>`,'links');document.getElementById('new-link').onclick=createLinkModal;document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=async e=>{e.stopPropagation();await navigator.clipboard.writeText(b.dataset.copy);toast('Ссылка скопирована')});document.querySelectorAll('[data-link-id]').forEach(c=>c.onclick=e=>{if(e.target.closest('[data-copy]'))return;openLinkDetail(c.dataset.linkId)});bindCharts()}
 function createLinkModal(){
  if(document.getElementById('link-modal'))return;
- document.body.insertAdjacentHTML('beforeend',`<div class="detail-backdrop open" id="link-modal"><div class="admin-detail"><header><div><small>НОВАЯ РЕКЛАМНАЯ ССЫЛКА</small><h2>Создать ссылку</h2></div><button type="button" id="link-close">×</button></header><section><label>Источник<input id="link-source" placeholder="Например: Telegram-канал Новости"></label><label>Кампания<input id="link-campaign" placeholder="Название рекламной кампании"></label><label>Размещение<input id="link-placement" placeholder="Пост, сторис, закреп"></label><label>Стоимость закупа, ₽<input id="link-spend" type="number" min="0" step="0.01" value="0"></label><label>Комментарий<textarea id="link-notes" placeholder="Дополнительная информация"></textarea></label><button type="button" class="primary-action" id="link-save">Создать</button></section></div></div>`);
+ document.body.insertAdjacentHTML('beforeend',`<div class="admin-detail-backdrop open" id="link-modal"><form class="admin-detail" id="link-form"><header><div><small>НОВАЯ РЕКЛАМНАЯ ССЫЛКА</small><h2>Создать ссылку</h2></div><button type="button" id="link-close">×</button></header><section><label>Источник<input id="link-source" required placeholder="Например: Telegram-канал Новости"></label><label>Кампания<input id="link-campaign" placeholder="Название рекламной кампании"></label><label>Размещение<input id="link-placement" placeholder="Пост, сторис, закреп"></label><label>Стоимость закупа, ₽<input id="link-spend" type="number" min="0" step="0.01" value="0"></label><label>Комментарий<textarea id="link-notes" placeholder="Дополнительная информация"></textarea></label><button type="submit" class="primary-action" id="link-save">Создать</button></section></form></div>`);
 
  const modal=document.getElementById('link-modal');
  const close=()=>modal?.remove();
@@ -65,8 +65,9 @@ function createLinkModal(){
  document.getElementById('link-close').onclick=close;
  modal.onclick=e=>{if(e.target===modal)close()};
 
- document.getElementById('link-save').onclick=async e=>{
-   const button=e.currentTarget;
+ document.getElementById('link-form').onsubmit=async e=>{
+   e.preventDefault();
+   const button=document.getElementById('link-save');
    const source=document.getElementById('link-source').value.trim();
 
    if(!source){
@@ -92,15 +93,12 @@ function createLinkModal(){
      close();
      toast('Ссылка успешно создана');
 
-     const url=d.deep_link||d.url||'';
-     if(url){
-       try{
-         await navigator.clipboard.writeText(url);
-         toast('Ссылка скопирована');
-       }catch{}
-     }
-
      await links();
+
+     const url=d.deep_link||d.url||'';
+     if(url&&navigator.clipboard?.writeText){
+       navigator.clipboard.writeText(url).then(()=>toast('Ссылка скопирована')).catch(()=>{});
+     }
    }catch(err){
      toast(err.message,true);
    }finally{
@@ -108,7 +106,7 @@ function createLinkModal(){
    }
  };
 }
-async function openLinkDetail(id){const d=await api(`/referral-links/${id}`);const back=document.createElement('div');back.className='detail-backdrop';back.innerHTML=`<div class="admin-detail referral-detail"><header><div><small>РЕКЛАМНАЯ ССЫЛКА</small><h2>${esc(d.source)}</h2><p>${esc([d.campaign,d.placement].filter(Boolean).join(' · '))}</p></div><button class="detail-close">×</button></header><div class="detail-metrics">${metric('Пришло',d.arrived)}${metric('Триал',d.trial)}${metric('VIP',d.vip,'','green')}${metric('Заблокировали',d.blocked,'','red')}${metric('Цена пользователя',d.cost_per_user+' ₽')}${metric('Цена VIP',d.cost_per_vip+' ₽')}</div><section><h3>Пользователи</h3>${d.users.map(u=>`<div class="detail-row"><span><b>${esc(u.name||u.telegram_id)}</b><small>${u.username?'@'+esc(u.username)+' · ':''}${esc(statusLabel(u.status))}${u.business_connected?' · Business подключён':''}${u.blocked?' · заблокировал бота':''}</small></span><time>${dt(u.created_at)}</time></div>`).join('')||'<p class="muted">Переходов пока нет</p>'}</section></div>`;document.body.append(back);back.querySelector('.detail-close').onclick=()=>back.remove()}
+async function openLinkDetail(id){const d=await api(`/referral-links/${id}`);const back=document.createElement('div');back.className='admin-detail-backdrop';back.innerHTML=`<div class="admin-detail referral-detail"><header><div><small>РЕКЛАМНАЯ ССЫЛКА</small><h2>${esc(d.source)}</h2><p>${esc([d.campaign,d.placement].filter(Boolean).join(' · '))}</p></div><button class="detail-close">×</button></header><div class="detail-metrics">${metric('Пришло',d.arrived)}${metric('Триал',d.trial)}${metric('VIP',d.vip,'','green')}${metric('Заблокировали',d.blocked,'','red')}${metric('Цена пользователя',d.cost_per_user+' ₽')}${metric('Цена VIP',d.cost_per_vip+' ₽')}</div><section><h3>Пользователи</h3>${d.users.map(u=>`<div class="detail-row"><span><b>${esc(u.name||u.telegram_id)}</b><small>${u.username?'@'+esc(u.username)+' · ':''}${esc(statusLabel(u.status))}${u.business_connected?' · Business подключён':''}${u.blocked?' · заблокировал бота':''}</small></span><time>${dt(u.created_at)}</time></div>`).join('')||'<p class="muted">Переходов пока нет</p>'}</section></div>`;document.body.append(back);back.querySelector('.detail-close').onclick=()=>back.remove()}
 
 async function payments(){loading('Платежи');const rows=await api('/payments');shell(`<section class="admin-page edge-safe"><div class="page-head"><div><small>ФИНАНСЫ</small><h1>Платежи</h1><p>${rows.length} последних операций</p></div></div><div class="mobile-list payment-cards">${rows.length?rows.map(p=>`<article><span><b>${(p.amount_minor/100).toFixed(2)} ${esc(p.currency)}</b><small>Пользователь #${p.owner_id}${p.recurring?' · рекуррентный':''}</small></span><em>${esc(statusLabel(p.status))}</em><time>${dt(p.created_at)}</time></article>`).join(''):'<div class="chart-empty">Платежей пока нет</div>'}</div></section>`,'payments')}
 async function errors(){loading('Ошибки');const rows=await api('/errors');shell(`<section class="admin-page errors-page edge-safe"><div class="page-head"><div><small>ДИАГНОСТИКА</small><h1>Ошибки</h1><p>${rows.length} последних записей</p></div></div><div class="error-cards">${rows.length?rows.map(r=>`<article class="error-card-mobile"><header><b>${esc(r.type||'Ошибка обработки')}</b><em class="${r.resolved?'resolved':''}">${r.resolved?'Исправлена':'Не решена'}</em></header><p>${esc(r.error||'Описание отсутствует')}</p><footer><span>Update ID: ${esc(r.update_id??'—')}</span><time>${dt(r.created_at)}</time></footer></article>`).join(''):'<div class="chart-empty">Ошибок нет</div>'}</div></section>`,'errors')}

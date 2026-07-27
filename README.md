@@ -30,6 +30,17 @@ ADMIN_MEDIA_CHAT_ID=-1001234567890
 
 1. Сохраните `.env` и дамп PostgreSQL.
 2. Не запускайте `docker compose down -v`.
-3. Укажите `MINI_APP_URL=https://game.hidenow.su/app/?build=088`.
+3. Убедитесь, что `MINI_APP_URL` указывает на `/app/` вашего домена. Версию
+   вручную добавлять не нужно: web-образ вычисляет её из содержимого JS/CSS.
 4. При необходимости укажите `ADMIN_MEDIA_CHAT_ID`.
 5. Выполните `./scripts/verify.sh`, пересоберите `api worker web`, запустите Compose и переустановите webhook.
+
+Готовая безопасная команда обновления с сервера:
+
+```bash
+cd /root/dialog-spy && git fetch origin && git checkout main && git pull --ff-only origin main && chmod +x scripts/*.sh && ./scripts/update.sh && ./scripts/set-webhook.sh && ./scripts/doctor.sh
+```
+
+`index.html` и `admin.html` отдаются без кеширования, а версия подключаемых
+JS/CSS вычисляется Docker-сборкой из их содержимого. Поэтому новая сборка не
+может случайно сослаться на bundle от предыдущего деплоя.

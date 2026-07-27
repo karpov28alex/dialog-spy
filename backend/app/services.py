@@ -446,18 +446,46 @@ def _moment(value: datetime | None) -> str:
 
 
 async def notify_start(bot: Bot, chat_id: int):
-    return await bot.send_message(
+    welcome = await bot.send_message(
         chat_id,
         "👁 <b>Dialog Spy</b>\n\n"
-        "Бот запущен. Подключите его через Telegram Business и откройте Mini App.\n\n"
-        "🔐 Чтобы сохранить фото или видео на один просмотр: не открывайте его, ответьте на него любым сообщением и дождитесь подтверждения.",
+        "Бот запущен. Подключите его через Telegram Business и откройте Mini App.",
         parse_mode="HTML",
         reply_markup=app_keyboard(),
     )
+    # Keep the legal notice separate: Telegram clients can otherwise collapse it
+    # together with the launch button and users may never see the terms.
+    await bot.send_message(
+        chat_id,
+        "📜 <b>Оферта и конфиденциальность</b>\n\n"
+        "Продолжая использовать Dialog Spy, вы подтверждаете, что имеете право "
+        "на обработку подключённой переписки и медиа. Данные сохраняются для работы архива.",
+        parse_mode="HTML",
+    )
+    return welcome
 
 
 async def notify_event(bot: Bot, owner: User, title: str, body: str | None, emoji: str = "⚡"):
     return await bot.send_message(owner.telegram_id, f"{emoji} <b>{escape(title)}</b>\n\n{escape(body or 'Без текста')}", parse_mode="HTML", reply_markup=app_keyboard())
+
+
+async def notify_new_message(bot: Bot, result: MessageProcessResult):
+    content = result.message.current_text or result.message.content_type or "Без текста"
+    text = (
+        "💬 <b>НОВОЕ СООБЩЕНИЕ</b>\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+        f"{_person_html(result.message, result.dialog)}\n"
+        f"💬 Диалог: <b>{escape(result.dialog.title or 'Без названия')}</b>\n"
+        f"🕓 {_moment(result.message.sent_at)}\n\n"
+        f"<blockquote>{escape(content)}</blockquote>"
+    )
+    return await bot.send_message(
+        result.owner.telegram_id,
+        text,
+        parse_mode="HTML",
+        reply_markup=app_keyboard(),
+        disable_web_page_preview=True,
+    )
 
 
 async def notify_edit(bot: Bot, result: MessageProcessResult, versions: list[MessageVersion] | None = None):
