@@ -10,10 +10,11 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.models import User
 from app.db.session import SessionLocal
-from app.services.access_center import build_access_center
+from app.platform.access.service import AccessPlatformService
 
 router = Router(name="access-center")
 settings = get_settings()
+service = AccessPlatformService()
 
 
 def _format_date(value: str | None) -> str:
@@ -48,6 +49,7 @@ def _keyboard(status: dict) -> InlineKeyboardMarkup:
 
 
 def _text(status: dict) -> str:
+    decision = status.get("platform_access") or {}
     lines = [
         "<b>🔐 Центр доступа Phantom</b>",
         "",
@@ -60,8 +62,8 @@ def _text(status: dict) -> str:
 
     lines.extend([
         "",
-        f"<b>Текущий этап:</b> {status['stage']}",
-        f"<b>Следующий шаг:</b> {status['next_action']}",
+        f"<b>Текущий этап:</b> {decision.get('title') or status['stage']}",
+        f"<b>Следующий шаг:</b> {decision.get('message') or status['next_action']}",
     ])
 
     if status["access"]["active"]:
@@ -91,7 +93,8 @@ async def _load_status(telegram_id: int, bot: Bot) -> dict | None:
         user = await session.scalar(select(User).where(User.telegram_id == telegram_id))
         if not user:
             return None
-        return await build_access_center(session=session, user=user, bot=bot)
+        decision, center = await service.evaluate_with_center(session=session, user=user, bot=bot)
+        return {**center, "platform_access": decision.as_dict()}
 
 
 async def _send(message: Message, telegram_id: int) -> None:
