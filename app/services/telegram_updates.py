@@ -165,11 +165,6 @@ def _media_from_message(event: TgMessage) -> list[dict[str, Any]]:
 
 
 async def _sync_message_media(session: AsyncSession, message: Message, event: TgMessage) -> list[Media]:
-    """Append media variants that Telegram reports for a message.
-
-    Old media rows are intentionally retained. This preserves an audit trail when an
-    edited Business message replaces a photo/video/document while keeping its caption.
-    """
     existing = list((await session.scalars(select(Media).where(Media.message_id == message.id))).all())
     known = {
         (row.telegram_unique_file_id or "", row.media_type or "")
@@ -204,7 +199,6 @@ async def save_business_message(session: AsyncSession, event: TgMessage) -> tupl
         )
     )
     if existing:
-        # A duplicate delivery may contain media omitted from the first delivery.
         await _sync_message_media(session, existing, event)
         return existing, False
     direction = "outgoing" if event.from_user and event.from_user.id == connection.business_user_id else "incoming"
@@ -251,6 +245,12 @@ async def edit_business_message(session: AsyncSession, event: TgMessage) -> tupl
     )
     if message is None:
         message, _ = await save_business_message(session, event)
+        return message, False, None
+
+    # Phantom tracks only actions performed by the interlocutor. Owner edits are
+    # deliberately ignored: no version, media mutation or notification is created.
+    if message.direction == "outgoing":
+        connection.last_activity_at = datetime.now(UTC)
         return message, False, None
 
     new_media = await _sync_message_media(session, message, event)
@@ -303,7 +303,7 @@ async def delete_business_messages(session: AsyncSession, event: BusinessMessage
                 Message.telegram_message_id == telegram_message_id,
             ).with_for_update()
         )
-        if message is None or message.is_deleted:
+        if message is None or message.is_deleted or message.direction == "outgoing":
             results.append(None)
             continue
         message.is_deleted = True
