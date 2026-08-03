@@ -11,6 +11,7 @@
   const fmt=value=>value?new Intl.DateTimeFormat('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(value)):'—';
 
   async function loadMark(){
+    if(window.__phantomUseCleanLogo)return '';
     if(markText)return markText;
     try{const response=await fetch(MARK_URL,{cache:'force-cache'});if(response.ok)markText=await response.text();}catch{}
     return markText;
@@ -22,6 +23,7 @@
   }
 
   async function upgradeMarks(){
+    if(window.__phantomUseCleanLogo)return;
     await loadMark();
     if(!markText)return;
     document.querySelectorAll('.boot').forEach(boot=>{
