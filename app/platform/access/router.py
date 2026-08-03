@@ -10,11 +10,9 @@ service = AccessPlatformService()
 
 @router.get("")
 async def access_status(user: CurrentUser, session: SessionDep) -> dict:
-    decision = await service.evaluate(session=session, user=user, bot=bot)
-    return decision.as_dict()
+    return await service.payload(session=session, user=user, bot=bot)
 
 
 @router.post("/recalculate")
 async def recalculate_access(user: CurrentUser, session: SessionDep) -> dict:
-    decision = await service.evaluate(session=session, user=user, bot=bot)
-    return decision.as_dict()
+    return await service.payload(session=session, user=user, bot=bot)
