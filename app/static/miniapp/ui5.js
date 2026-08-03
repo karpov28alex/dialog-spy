@@ -1,5 +1,6 @@
 (() => {
-  const LOGO_PARTS=['/app/logo-data/0.txt?v=0.9.1','/app/logo-data/1.txt?v=0.9.1'];
+  window.__phantomUseCleanLogo = true;
+  const LOGO_PARTS=['/app/logo-data/0.txt?v=0.9.2','/app/logo-data/1.txt?v=0.9.2'];
   let cleanLogo='';
   let dialogsCache=null;
   const nativeFetch=window.fetch.bind(window);
@@ -36,11 +37,12 @@
   function replaceLogos(){
     if(!cleanLogo)return;
     document.querySelectorAll('.ph4-transition-logo,.ph4-brand-mark,.ph-load-logo').forEach(holder=>{
-      if(holder.dataset.cleanLogo==='1')return;
+      const existing=holder.querySelector(':scope > .ph5-logo');
+      if(existing)return;
       holder.dataset.cleanLogo='1';
       holder.replaceChildren(logoImage(holder.classList.contains('ph-load-logo')?'ph5-logo ph5-loader-logo':'ph5-logo'));
     });
-    document.querySelectorAll('.brand .phantom-logo,.brand>.logo').forEach(node=>node.remove());
+    document.querySelectorAll('.brand .phantom-logo,.brand>.logo,.ph4-mark').forEach(node=>node.remove());
   }
 
   function protectionPanel(){
@@ -112,7 +114,7 @@
 
   document.addEventListener('DOMContentLoaded',()=>{
     const app=document.querySelector('#app');
-    if(app)new MutationObserver(refreshUi).observe(app,{childList:true,subtree:true});
+    if(app)new MutationObserver(()=>queueMicrotask(refreshUi)).observe(app,{childList:true,subtree:true});
     refreshUi();
   });
 })();
