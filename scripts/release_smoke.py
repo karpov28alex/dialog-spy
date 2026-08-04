@@ -14,7 +14,10 @@ CHECKS = (
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run post-deployment smoke checks.")
-    parser.add_argument("base_url", help="Deployment base URL, for example https://app.example.com")
+    parser.add_argument(
+        "base_url",
+        help="Deployment base URL, for example https://app.example.com",
+    )
     parser.add_argument("--timeout", type=float, default=10.0)
     args = parser.parse_args()
 
@@ -32,7 +35,7 @@ def main() -> None:
             content_type = response.headers.get("content-type", "")
             if expected_type not in content_type:
                 failures.append(
-                    f"{path}: expected content-type containing {expected_type!r}, got {content_type!r}"
+                    f"{path}: expected {expected_type!r} content type, got {content_type!r}"
                 )
                 continue
             print(f"OK {path} [{response.status_code}] {content_type}")
