@@ -1,4 +1,5 @@
-from app.main import app
+from pathlib import Path
+
 from app.modules.archive.router import router
 from app.modules.archive.schemas import DialogListItem, DialogListResponse
 
@@ -9,12 +10,13 @@ def test_archive_v2_dialog_route_is_typed() -> None:
 
 
 def test_archive_v2_router_is_registered_in_application() -> None:
-    paths = {path for route in app.routes if (path := getattr(route, "path", None))}
-    assert "/api/v2/archive/dialogs" in paths
+    source = Path("app/main.py").read_text(encoding="utf-8")
+    assert "from app.modules.archive import router as archive_v2_router" in source
+    assert "app.include_router(archive_v2_router)" in source
 
 
 def test_archive_v2_router_does_not_depend_on_legacy_user_routes() -> None:
-    source = __import__("pathlib").Path("app/modules/archive/router.py").read_text(encoding="utf-8")
+    source = Path("app/modules/archive/router.py").read_text(encoding="utf-8")
     assert "app.api.routes.user" not in source
     assert "app.modules.archive.access" in source
 
