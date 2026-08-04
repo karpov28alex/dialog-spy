@@ -9,7 +9,7 @@ from app.modules.archive.router import download_media as download_media_v2
 from app.modules.archive.schemas import DialogPatch
 from app.modules.archive.service import ArchiveService
 
-router = APIRouter(prefix="/api", tags=["archive-legacy"])
+router = APIRouter(tags=["archive-legacy"])
 
 
 def archive_service(session: SessionDep, settings: Settings) -> ArchiveService:
