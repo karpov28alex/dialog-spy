@@ -11,6 +11,14 @@ permissions:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    env:
+      APP_ENV: test
+      SECRET_KEY: ci-only-secret-key-with-at-least-32-characters
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/dialog_spy_test
+      REDIS_URL: redis://localhost:6379/15
+      TELEGRAM_WEBHOOK_SECRET: ci-webhook-secret
+      ADMIN_PASSWORD: ci-admin-password
+      MEDIA_ROOT: /tmp/dialog-spy-media
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
