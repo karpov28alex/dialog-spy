@@ -2,80 +2,96 @@
   'use strict';
 
   const observed = new WeakSet();
-  const pending = [];
-  const active = new Set();
+  const queue = [];
+  const tasks = new Map();
+  const objectUrls = new Map();
+  let active = 0;
   const MAX_CONCURRENT = 3;
 
-  function cacheKey(image) {
-    const dialogId = image.closest('[data-dialog]')?.dataset.dialog;
-    return `phantom.avatar.url.${dialogId || image.dataset.avatarSource || image.src}`;
+  function identity(image) {
+    return image.closest('[data-dialog]')?.dataset.dialog || image.dataset.avatarSource || '';
   }
 
-  function applyCachedBackground(image) {
-    const holder = image.closest('.avatar');
-    if (!holder) return;
-    let previous = null;
-    try { previous = localStorage.getItem(cacheKey(image)); } catch {}
-    if (!previous) return;
-    holder.style.backgroundImage = `url("${previous.replace(/"/g, '%22')}")`;
-    holder.style.backgroundSize = 'cover';
-    holder.style.backgroundPosition = 'center';
+  function sourceFor(image) {
+    return image.dataset.avatarSource || image.currentSrc || image.getAttribute('src') || '';
   }
 
-  function finish(image) {
-    active.delete(image);
-    image.dataset.avatarState = 'done';
-    pump();
-  }
-
-  function load(image) {
-    if (!image.isConnected || image.dataset.avatarState === 'loading') return;
-    const source = image.dataset.avatarSource;
-    if (!source) return;
-
-    image.dataset.avatarState = 'loading';
-    active.add(image);
-    image.decoding = 'async';
-    image.loading = 'eager';
-    try { image.fetchPriority = 'auto'; } catch {}
-
-    image.addEventListener('load', () => {
+  function applyToCurrent(identityKey, objectUrl) {
+    document.querySelectorAll('.avatar img[data-avatar-key]').forEach(image => {
+      if (image.dataset.avatarKey !== identityKey) return;
       const holder = image.closest('.avatar');
-      if (holder) {
-        holder.style.backgroundImage = `url("${source.replace(/"/g, '%22')}")`;
-        holder.style.backgroundSize = 'cover';
-        holder.style.backgroundPosition = 'center';
-      }
-      try { localStorage.setItem(cacheKey(image), source); } catch {}
+      if (!holder) return;
+      image.src = objectUrl;
       image.style.opacity = '1';
-      finish(image);
-    }, {once: true});
+      holder.style.backgroundImage = `url("${objectUrl}")`;
+      holder.style.backgroundSize = 'cover';
+      holder.style.backgroundPosition = 'center';
+    });
+  }
 
-    image.addEventListener('error', () => {
-      image.style.opacity = '0';
-      finish(image);
-    }, {once: true});
-
-    image.src = source;
+  async function download(job) {
+    try {
+      const response = await fetch(job.source, {
+        cache: 'force-cache',
+        credentials: 'same-origin',
+      });
+      if (!response.ok) throw new Error(`avatar HTTP ${response.status}`);
+      const blob = await response.blob();
+      if (!blob.size) throw new Error('empty avatar');
+      const previous = objectUrls.get(job.key);
+      if (previous) URL.revokeObjectURL(previous);
+      const objectUrl = URL.createObjectURL(blob);
+      objectUrls.set(job.key, objectUrl);
+      applyToCurrent(job.key, objectUrl);
+    } catch {
+      // The server may still be warming its Telegram-side cache. Retry later
+      // without tying the request lifecycle to a particular DOM node.
+      window.setTimeout(() => {
+        if (!tasks.has(job.key)) {
+          queue.push(job);
+          tasks.set(job.key, true);
+          pump();
+        }
+      }, 8000);
+    } finally {
+      tasks.delete(job.key);
+      active -= 1;
+      pump();
+    }
   }
 
   function pump() {
-    while (active.size < MAX_CONCURRENT && pending.length) {
-      const image = pending.shift();
-      if (!image?.isConnected || image.dataset.avatarState === 'done') continue;
-      load(image);
+    while (active < MAX_CONCURRENT && queue.length) {
+      const job = queue.shift();
+      if (!job || !job.source) continue;
+      active += 1;
+      void download(job);
     }
+  }
+
+  function enqueue(image) {
+    const key = identity(image);
+    const source = sourceFor(image);
+    if (!key || !source) return;
+
+    const cached = objectUrls.get(key);
+    if (cached) {
+      applyToCurrent(key, cached);
+      return;
+    }
+    if (tasks.has(key)) return;
+    tasks.set(key, true);
+    queue.push({key, source});
+    pump();
   }
 
   const intersection = new IntersectionObserver(entries => {
     for (const entry of entries) {
       if (!entry.isIntersecting) continue;
-      const image = entry.target;
-      intersection.unobserve(image);
-      pending.push(image);
+      intersection.unobserve(entry.target);
+      enqueue(entry.target);
     }
-    pump();
-  }, {rootMargin: '320px 0px'});
+  }, {rootMargin: '700px 0px'});
 
   function prepare(image) {
     if (!(image instanceof HTMLImageElement) || observed.has(image)) return;
@@ -83,14 +99,19 @@
     if (!holder) return;
 
     observed.add(image);
-    image.dataset.avatarSource = image.currentSrc || image.getAttribute('src') || '';
+    const source = sourceFor(image);
+    const key = identity(image);
+    image.dataset.avatarSource = source;
+    image.dataset.avatarKey = key;
     image.removeAttribute('src');
     image.loading = 'lazy';
     image.decoding = 'async';
     image.style.opacity = '0';
     image.style.transition = 'opacity .2s ease';
-    applyCachedBackground(image);
-    intersection.observe(image);
+
+    const cached = objectUrls.get(key);
+    if (cached) applyToCurrent(key, cached);
+    else intersection.observe(image);
   }
 
   function scan(root = document) {
