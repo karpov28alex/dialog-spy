@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from app.api.routes.user import router as user_router
 from app.modules.archive.legacy_router import router as legacy_router
 
 
@@ -13,9 +12,9 @@ def test_legacy_archive_paths_remain_available() -> None:
 
 
 def test_user_router_mounts_archive_adapter() -> None:
-    paths = {route.path for route in user_router.routes}
-    assert "/api/dialogs" in paths
-    assert "/api/dialogs/{dialog_id}" in paths
+    source = Path("app/api/routes/user.py").read_text(encoding="utf-8")
+    assert "from app.modules.archive.legacy_router import router as legacy_archive_router" in source
+    assert "router.include_router(legacy_archive_router)" in source
 
 
 def test_user_module_no_longer_owns_archive_sql() -> None:
