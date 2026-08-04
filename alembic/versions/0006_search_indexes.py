@@ -28,22 +28,22 @@ FTS_INDEXES = (
     (
         "ix_dialogs_search_fts",
         "dialogs",
-        "to_tsvector('simple', concat_ws(' ', coalesce(peer_name, ''), coalesce(peer_username, '')))",
+        "to_tsvector('simple', coalesce(peer_name, '') || ' ' || coalesce(peer_username, ''))",
     ),
     (
         "ix_messages_search_fts",
         "messages",
-        "to_tsvector('simple', concat_ws(' ', coalesce(text, ''), coalesce(caption, '')))",
+        "to_tsvector('simple', coalesce(text, '') || ' ' || coalesce(caption, ''))",
     ),
     (
         "ix_message_versions_search_fts",
         "message_versions",
-        "to_tsvector('simple', concat_ws(' ', coalesce(text, ''), coalesce(caption, '')))",
+        "to_tsvector('simple', coalesce(text, '') || ' ' || coalesce(caption, ''))",
     ),
     (
         "ix_media_search_fts",
         "media",
-        "to_tsvector('simple', concat_ws(' ', coalesce(filename, ''), coalesce(mime_type, ''), coalesce(media_type, '')))",
+        "to_tsvector('simple', coalesce(filename, '') || ' ' || coalesce(mime_type, '') || ' ' || coalesce(media_type, ''))",
     ),
 )
 
