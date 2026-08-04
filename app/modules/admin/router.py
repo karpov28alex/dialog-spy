@@ -10,7 +10,7 @@ from app.db.session import get_session
 from app.modules.admin.schemas import AdminDashboardResponse
 from app.modules.admin.service import AdminDashboardService
 
-router = APIRouter(prefix="/api/v2/admin", tags=["admin-v2"])
+router = APIRouter(prefix="/v2/admin", tags=["admin-v2"])
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
