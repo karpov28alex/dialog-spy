@@ -28,9 +28,6 @@ class MetricsMiddleware(BaseHTTPMiddleware):
         call_next: RequestResponseEndpoint,
     ) -> Response:
         started = perf_counter()
-        status_code = 500
-        response: Response
-
         oversized = _oversized_response(request)
         if oversized is not None:
             response = oversized
@@ -38,14 +35,13 @@ class MetricsMiddleware(BaseHTTPMiddleware):
             limited = await _rate_limit_response(request)
             response = limited if limited is not None else await call_next(request)
 
-        status_code = response.status_code
         _add_security_headers(response)
         route = request.scope.get("route")
         route_path = getattr(route, "path", request.url.path)
         runtime_metrics.observe_http(
             method=request.method,
             route=route_path,
-            status_code=status_code,
+            status_code=response.status_code,
             duration_seconds=perf_counter() - started,
         )
         return response
@@ -71,7 +67,7 @@ async def _rate_limit_response(request: Request) -> Response | None:
 
     limit, window_seconds = policy
     window = int(time()) // window_seconds
-    identity = _client_identity(request)
+    identity = request.client.host if request.client else "unknown"
     key = f"dialog_spy:rate_limit:{request.method}:{request.url.path}:{identity}:{window}"
     redis = Redis.from_url(settings.redis_url, decode_responses=True)
     try:
@@ -92,13 +88,6 @@ async def _rate_limit_response(request: Request) -> Response | None:
         content={"detail": "Too many requests"},
         headers={"Retry-After": str(max(retry_after, 1))},
     )
-
-
-def _client_identity(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",", 1)[0].strip()
-    return request.client.host if request.client else "unknown"
 
 
 def _add_security_headers(response: Response) -> None:
