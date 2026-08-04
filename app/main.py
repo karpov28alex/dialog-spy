@@ -2,6 +2,7 @@ import asyncio
 import uuid
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
+from time import perf_counter
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from fastapi import FastAPI, Request
@@ -41,6 +42,8 @@ from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.db.session import engine
 from app.modules.archive import router as archive_v2_router
+from app.observability.middleware import MetricsMiddleware
+from app.observability.router import router as observability_router
 from app.platform.access.router import router as platform_access_router
 from app.services.funnel_scheduler import funnel_scheduler_loop
 from app.services.media_recovery_scheduler import media_recovery_loop
@@ -55,19 +58,30 @@ _original_user_menu = admin_console_module.user_menu
 def _user_menu_with_stats(admin: bool) -> InlineKeyboardMarkup:
     original = _original_user_menu(admin)
     rows = [list(row) for row in original.inline_keyboard]
-    rows.insert(1 if rows else 0, [
-        InlineKeyboardButton(text="📊 Статистика", callback_data="intel:summary"),
-        InlineKeyboardButton(text="🔐 Доступ", callback_data="user:access"),
-    ])
+    rows.insert(
+        1 if rows else 0,
+        [
+            InlineKeyboardButton(text="📊 Статистика", callback_data="intel:summary"),
+            InlineKeyboardButton(text="🔐 Доступ", callback_data="user:access"),
+        ],
+    )
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def _expired_keyboard_with_impaya(payment_url: str, payment_button_text: str, referral_available: bool = True) -> InlineKeyboardMarkup:
+def _expired_keyboard_with_impaya(
+    payment_url: str,
+    payment_button_text: str,
+    referral_available: bool = True,
+) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
     if referral_available:
-        rows.append([InlineKeyboardButton(text="👥 Пригласить друга", callback_data="funnel:invite")])
+        rows.append(
+            [InlineKeyboardButton(text="👥 Пригласить друга", callback_data="funnel:invite")]
+        )
     if settings.impaya_enabled:
-        rows.append([InlineKeyboardButton(text=payment_button_text, callback_data="impaya:pay")])
+        rows.append(
+            [InlineKeyboardButton(text=payment_button_text, callback_data="impaya:pay")]
+        )
     elif payment_url.startswith("https://"):
         rows.append([InlineKeyboardButton(text=payment_button_text, url=payment_url)])
     return InlineKeyboardMarkup(inline_keyboard=rows)
@@ -81,8 +95,14 @@ access_funnel_module.expired_keyboard = _expired_keyboard_with_impaya
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     settings.media_root.mkdir(parents=True, exist_ok=True)
-    funnel_task = asyncio.create_task(funnel_scheduler_loop(), name="access-funnel-scheduler")
-    media_task = asyncio.create_task(media_recovery_loop(), name="telegram-media-recovery")
+    funnel_task = asyncio.create_task(
+        funnel_scheduler_loop(),
+        name="access-funnel-scheduler",
+    )
+    media_task = asyncio.create_task(
+        media_recovery_loop(),
+        name="telegram-media-recovery",
+    )
     try:
         yield
     finally:
@@ -95,6 +115,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Dialog Spy API", version=settings.app_version, lifespan=lifespan)
+app.add_middleware(MetricsMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(settings.cors_origins),
@@ -127,11 +148,13 @@ app.include_router(admin_platform_router)
 app.include_router(admin_commerce_router)
 app.include_router(webhook_router)
 app.include_router(webhook_compat_router)
+app.include_router(observability_router)
 
 
 @app.middleware("http")
 async def correlation_middleware(request: Request, call_next):
     correlation_id = request.headers.get("x-correlation-id") or uuid.uuid4().hex
+    request.state.correlation_id = correlation_id
     response = await call_next(request)
     response.headers["X-Correlation-ID"] = correlation_id
     if request.url.path.startswith(("/app", "/admin")):
@@ -142,63 +165,112 @@ async def correlation_middleware(request: Request, call_next):
 
 @app.exception_handler(Exception)
 async def unhandled_error(request: Request, _: Exception) -> JSONResponse:
+    correlation_id = getattr(request.state, "correlation_id", "unknown")
     return JSONResponse(
         status_code=500,
-        content={"error": {"code": "INTERNAL_ERROR", "message": "Внутренняя ошибка", "details": {}, "correlation_id": request.headers.get("x-correlation-id", "unknown")}},
+        content={
+            "error": {
+                "code": "INTERNAL_ERROR",
+                "message": "Внутренняя ошибка",
+                "details": {},
+                "correlation_id": correlation_id,
+            }
+        },
     )
 
 
 @app.get("/health/live")
 async def live() -> dict:
-    return {"status": "ok", "version": settings.app_version, "git_sha": settings.git_sha}
+    return {
+        "status": "ok",
+        "version": settings.app_version,
+        "git_sha": settings.git_sha,
+    }
 
 
 @app.get("/health/ready")
 async def ready() -> dict:
+    database_started = perf_counter()
     async with engine.connect() as connection:
         await connection.execute(text("select 1"))
+    database_ms = round((perf_counter() - database_started) * 1000, 2)
+
+    redis_started = perf_counter()
     redis = Redis.from_url(settings.redis_url)
-    await redis.ping()
-    await redis.aclose()
-    return {"status": "ready"}
+    try:
+        await redis.ping()
+    finally:
+        await redis.aclose()
+    redis_ms = round((perf_counter() - redis_started) * 1000, 2)
+
+    return {
+        "status": "ready",
+        "dependencies": {
+            "database": {"status": "ok", "latency_ms": database_ms},
+            "redis": {"status": "ok", "latency_ms": redis_ms},
+        },
+    }
 
 
 @app.get("/app", include_in_schema=False)
 async def mini_app() -> FileResponse:
-    return FileResponse("app/static/miniapp/index.html", headers={"Cache-Control": "no-store"})
+    return FileResponse(
+        "app/static/miniapp/index.html",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.get("/app/app.js", include_in_schema=False)
 async def mini_app_js() -> FileResponse:
-    return FileResponse("app/static/miniapp/app.js", media_type="application/javascript", headers={"Cache-Control": "no-store"})
+    return FileResponse(
+        "app/static/miniapp/app.js",
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.get("/app/style.css", include_in_schema=False)
 async def mini_app_css() -> FileResponse:
-    return FileResponse("app/static/miniapp/style.css", media_type="text/css", headers={"Cache-Control": "no-store"})
+    return FileResponse(
+        "app/static/miniapp/style.css",
+        media_type="text/css",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.get("/app/{asset_path:path}", include_in_schema=False)
 async def mini_app_asset(asset_path: str):
     path = Path("app/static/miniapp") / asset_path
     if not path.is_file():
-        return FileResponse("app/static/miniapp/index.html", headers={"Cache-Control": "no-store"})
+        return FileResponse(
+            "app/static/miniapp/index.html",
+            headers={"Cache-Control": "no-store"},
+        )
     return FileResponse(path, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/admin", include_in_schema=False)
 async def admin_app() -> FileResponse:
-    return FileResponse("app/static/admin/stable.html", headers={"Cache-Control": "no-store"})
+    return FileResponse(
+        "app/static/admin/stable.html",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.get("/admin/platform", include_in_schema=False)
 async def admin_platform_shell() -> FileResponse:
-    return FileResponse("app/static/admin/unified.html", headers={"Cache-Control": "no-store"})
+    return FileResponse(
+        "app/static/admin/unified.html",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.get("/admin/dialogs", include_in_schema=False)
 async def admin_dialog_viewer() -> FileResponse:
-    return FileResponse("app/static/admin/dialogs-media.html", headers={"Cache-Control": "no-store"})
+    return FileResponse(
+        "app/static/admin/dialogs-media.html",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.get("/admin/{asset_path:path}", include_in_schema=False)
