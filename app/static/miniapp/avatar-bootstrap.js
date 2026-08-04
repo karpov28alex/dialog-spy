@@ -7,6 +7,7 @@
   const objectUrls = new Map();
   let active = 0;
   const MAX_CONCURRENT = 3;
+  const RETRY_DELAY_MS = 3000;
 
   function identity(image) {
     return image.closest('[data-dialog]')?.dataset.dialog || image.dataset.avatarSource || '';
@@ -29,13 +30,29 @@
     });
   }
 
+  function retry(job) {
+    window.setTimeout(() => {
+      if (objectUrls.has(job.key) || tasks.has(job.key)) return;
+      queue.push(job);
+      tasks.set(job.key, true);
+      pump();
+    }, RETRY_DELAY_MS);
+  }
+
   async function download(job) {
     try {
       const response = await fetch(job.source, {
-        cache: 'force-cache',
+        cache: 'no-store',
         credentials: 'same-origin',
       });
       if (!response.ok) throw new Error(`avatar HTTP ${response.status}`);
+      if (response.headers.get('x-avatar-pending') === '1') {
+        throw new Error('avatar pending');
+      }
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.startsWith('image/jpeg')) {
+        throw new Error(`unexpected avatar type ${contentType}`);
+      }
       const blob = await response.blob();
       if (!blob.size) throw new Error('empty avatar');
       const previous = objectUrls.get(job.key);
@@ -44,15 +61,7 @@
       objectUrls.set(job.key, objectUrl);
       applyToCurrent(job.key, objectUrl);
     } catch {
-      // The server may still be warming its Telegram-side cache. Retry later
-      // without tying the request lifecycle to a particular DOM node.
-      window.setTimeout(() => {
-        if (!tasks.has(job.key)) {
-          queue.push(job);
-          tasks.set(job.key, true);
-          pump();
-        }
-      }, 8000);
+      retry(job);
     } finally {
       tasks.delete(job.key);
       active -= 1;
@@ -63,7 +72,7 @@
   function pump() {
     while (active < MAX_CONCURRENT && queue.length) {
       const job = queue.shift();
-      if (!job || !job.source) continue;
+      if (!job || !job.source || objectUrls.has(job.key)) continue;
       active += 1;
       void download(job);
     }
