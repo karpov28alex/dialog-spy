@@ -6,11 +6,13 @@ from app.api.deps import CurrentUser, SessionDep
 from app.bot.setup import bot
 from app.core.config import Settings, get_settings
 from app.db.models import BusinessConnection, User
+from app.modules.archive.legacy_router import router as legacy_archive_router
 from app.services.access import access_state, get_monetization_settings, payment_plans
 from app.services.access_funnel import channel_gate_passed, get_funnel_config
 from app.services.users import referral_code
 
 router = APIRouter(prefix="/api", tags=["user"])
+router.include_router(legacy_archive_router)
 
 
 async def require_channel_access(user: User) -> None:
