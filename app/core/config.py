@@ -5,12 +5,14 @@ from pathlib import Path
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.version import __version__
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=None, case_sensitive=False, extra="ignore")
 
     app_env: str = "development"
-    app_version: str = "0.5.0"
+    app_version: str = __version__
     git_sha: str = "local"
     secret_key: str = Field(min_length=32)
     database_url: str
@@ -33,7 +35,6 @@ class Settings(BaseSettings):
     refresh_token_ttl_days: int = 30
     cors_origins: tuple[str, ...] = ()
 
-    # Impaya API and hosted payment form are configured independently.
     impaya_enabled: bool = False
     impaya_test_mode: bool = True
     impaya_api_url: str = "https://ag-stage.impaya.ru"
