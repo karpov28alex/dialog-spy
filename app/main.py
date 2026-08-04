@@ -61,7 +61,7 @@ def _user_menu_with_stats(admin: bool) -> InlineKeyboardMarkup:
     rows.insert(
         1 if rows else 0,
         [
-            InlineKeyboardButton(text="📊 Статистика", callback_data="intel:summary"),
+            InlineKeyboardButton(text="📊 Статистика", callback_data="user:stats"),
             InlineKeyboardButton(text="🔐 Доступ", callback_data="user:access"),
         ],
     )
