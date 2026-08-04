@@ -25,6 +25,7 @@ from app.api.routes.admin_telegram_health import router as admin_telegram_health
 from app.api.routes.admin_user360 import router as admin_user360_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.avatar import router as avatar_router
+from app.api.routes.global_search import router as global_search_router
 from app.api.routes.impaya_db_pricing import router as impaya_db_pricing_router
 from app.api.routes.impaya import router as impaya_router
 from app.api.routes.subscription import router as subscription_router
@@ -102,6 +103,7 @@ app.add_middleware(
 )
 app.include_router(auth_router)
 app.include_router(user_router)
+app.include_router(global_search_router)
 app.include_router(access_center_router)
 app.include_router(platform_access_router)
 app.include_router(user_intelligence_router)
