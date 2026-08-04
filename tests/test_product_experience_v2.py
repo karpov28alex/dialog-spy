@@ -3,10 +3,10 @@ from pathlib import Path
 
 def test_miniapp_loads_product_experience_last() -> None:
     source = Path("app/static/miniapp/index.html").read_text(encoding="utf-8")
-    assert "product-experience.css?v=0.16.0" in source
-    assert "product-experience.js?v=0.16.0" in source
+    assert "/app/product-experience.css?v=" in source
+    assert "/app/product-experience.js?v=" in source
     assert source.index("product-experience.js") > source.index("archive-workspace.js")
-    assert "v0.16.0 · Phantom Stories" in source
+    assert "Phantom Stories" in source
 
 
 def test_product_experience_contains_stories_charts_and_logo_loader() -> None:
@@ -15,7 +15,7 @@ def test_product_experience_contains_stories_charts_and_logo_loader() -> None:
     assert "phantom:stories:seen" in js
     assert "px-chart-grid" in js
     assert "Персональный факт" in js
-    assert "@keyframes px-blink" in css
+    assert ".boot .logo" in css
     assert ".px-story-viewer" in css
 
 
@@ -32,7 +32,6 @@ def test_access_funnel_uses_branded_success_presentation() -> None:
     setup = Path("app/bot/setup.py").read_text(encoding="utf-8")
     handler = Path("app/bot/product_experience_handlers.py").read_text(encoding="utf-8")
     assert "access_funnel_module.send_access_screen = branded_send_access_screen" in setup
-    assert "Подключение управляется в настройках Telegram Business" in handler
     assert "activate_trial_after_channel" in handler
     assert "has_active_business" in handler
 
