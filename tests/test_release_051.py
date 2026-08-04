@@ -1,10 +1,10 @@
 from pathlib import Path
 
-from app.main import app
+from app.api.routes.webhook import router as webhook_router
 
 
 def test_legacy_and_canonical_webhook_routes_are_registered() -> None:
-    paths = {path for route in app.routes if (path := getattr(route, "path", None))}
+    paths = {path for route in webhook_router.routes if (path := getattr(route, "path", None))}
     assert "/telegram/webhook/{secret}" in paths
     assert "/api/telegram/webhook/{secret}" in paths
 
