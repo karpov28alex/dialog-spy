@@ -28,9 +28,21 @@ jobs:
           cache: pip
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e '.[dev]'
-      - name: Ruff baseline
-        run: ruff check app/version.py
+      - name: Ruff maintained code
+        run: >-
+          ruff check
+          app/version.py
+          app/observability/middleware.py
+          scripts/check_migrations.py
+          scripts/release_smoke.py
+          tests/test_security_release_contract.py
       - name: Mypy baseline
         run: mypy app/version.py
+      - name: Validate pre-commit configuration
+        run: pre-commit validate-config
+      - name: Validate Alembic chain
+        run: python scripts/check_migrations.py
+      - name: Import production application
+        run: python -c "from app.main import app; print(app.title)"
       - name: Test suite
         run: pytest -q
