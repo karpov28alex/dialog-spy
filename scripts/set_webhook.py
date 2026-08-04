@@ -14,6 +14,7 @@ async def main() -> None:
         secret_token=settings.telegram_webhook_secret,
         allowed_updates=[
             "message",
+            "edited_message",
             "callback_query",
             "business_connection",
             "business_message",
