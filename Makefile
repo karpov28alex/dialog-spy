@@ -1,4 +1,11 @@
-.PHONY: up down logs test lint migrate webhook backup
+.PHONY: install dev up down logs test lint typecheck check migrate webhook backup
+
+install:
+	python -m pip install -e '.[dev]'
+
+dev:
+	uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
 up:
 	docker compose up -d --build
 
@@ -13,6 +20,11 @@ test:
 
 lint:
 	ruff check .
+
+typecheck:
+	mypy app
+
+check: lint typecheck test
 
 migrate:
 	alembic upgrade head
