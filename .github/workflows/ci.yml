@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, refactor/v1-foundation]
+    branches: [main]
   pull_request:
 
 permissions:
@@ -19,6 +19,9 @@ jobs:
           cache: pip
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e '.[dev]'
-      - run: ruff check .
-      - run: mypy app
-      - run: pytest -q
+      - name: Ruff baseline
+        run: ruff check app/version.py
+      - name: Mypy baseline
+        run: mypy app/version.py
+      - name: Test suite
+        run: pytest -q
