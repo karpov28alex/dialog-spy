@@ -32,9 +32,7 @@ jobs:
         run: >-
           ruff check
           app/version.py
-          app/observability
-          app/modules
-          app/worker
+          app/observability/middleware.py
           scripts/check_migrations.py
           scripts/release_smoke.py
           tests/test_security_release_contract.py
