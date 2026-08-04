@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, Query
 
 from app.api.deps import CurrentUser, SessionDep
-from app.api.routes.user import require_archive_access
 from app.core.config import Settings, get_settings
+from app.modules.archive.access import require_archive_access
 from app.modules.archive.repository import ArchiveRepository
 from app.modules.archive.schemas import DialogListResponse
 from app.modules.archive.service import ArchiveService
