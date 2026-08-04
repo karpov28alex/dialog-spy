@@ -25,6 +25,32 @@ from app.bot.subscription import subscription_command  # noqa: E402
 from app.bot import profile_card_handlers, user_handlers  # noqa: E402
 from app.bot.enhanced_user_menu import enhanced_user_keyboard  # noqa: E402
 
+# Legacy all-in-one routers are still imported by the webhook module for
+# backwards-compatible commands. Remove the handlers that are now implemented
+# by the specialised routers below, otherwise one Telegram update produces two
+# or three replies.
+from app.bot.handlers import router as legacy_command_router  # noqa: E402
+from app.bot.admin_handlers import router as legacy_admin_router  # noqa: E402
+
+
+def _drop_named_handlers(observer, names: set[str]) -> None:
+    observer.handlers[:] = [
+        handler
+        for handler in observer.handlers
+        if getattr(handler.callback, "__name__", "") not in names
+    ]
+
+
+# /start is owned by access_funnel. Help and menu callbacks are owned by the
+# newer user-experience/account routers. Legacy message-only admin maintenance
+# commands remain available.
+_drop_named_handlers(legacy_command_router.message, {"start"})
+legacy_command_router.callback_query.handlers.clear()
+legacy_admin_router.callback_query.handlers.clear()
+
+# user_handlers overlaps with access_funnel, profile_card and user_experience.
+# Do not mount it as a second top-level router.
+
 # Every user interaction must pass a live informational-channel check.
 dispatcher.message.outer_middleware(ChannelGateMiddleware())
 dispatcher.callback_query.outer_middleware(ChannelGateMiddleware())
@@ -45,8 +71,7 @@ dispatcher.callback_query.register(pay_callback, F.data == "impaya:pay")
 dispatcher.include_router(channel_check_override_router)
 dispatcher.include_router(access_center_router)
 
-# The access funnel is a user-facing router. It must be attached directly so
-# /start and channel-verification callbacks work for ordinary users.
+# The access funnel is the single owner of /start.
 dispatcher.include_router(access_funnel_router)
 dispatcher.include_router(group_archive_router)
 dispatcher.include_router(menu_editor_router)
@@ -55,4 +80,3 @@ dispatcher.include_router(statistics_card_router)
 dispatcher.include_router(profile_card_router)
 dispatcher.include_router(user_experience_router)
 dispatcher.include_router(archive_router)
-dispatcher.include_router(user_handlers.router)
