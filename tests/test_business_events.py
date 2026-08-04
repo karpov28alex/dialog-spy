@@ -23,6 +23,7 @@ def message():
     return SimpleNamespace(
         text="новое & важное",
         caption=None,
+        sent_at=datetime(2026, 7, 28, 12, 20, tzinfo=UTC),
         edited_at=datetime(2026, 7, 28, 12, 30, tzinfo=UTC),
     )
 
@@ -42,19 +43,20 @@ def test_edit_notification_contains_escaped_history_and_current_content() -> Non
     text = format_edit_notification(
         dialog=dialog(), settings=prefs(), message=message(), versions=versions()
     )
-    assert "Версия 1" in text
-    assert "Текущая версия" in text
+    assert "Старое сообщение:" in text
+    assert "Новое сообщение:" in text
     assert "старое &lt;b&gt;" in text
     assert "новое &amp; важное" in text
-    assert "Все версии сохранены" in text
+    assert "Отправлено:" in text
+    assert "Изменено:" in text
 
 
-def test_hidden_preview_never_leaks_message_text() -> None:
+def test_edit_history_is_preserved_when_generic_preview_is_hidden() -> None:
     text = format_edit_notification(
         dialog=dialog(), settings=prefs(hide_preview=True), message=message(), versions=versions()
     )
-    assert "старое" not in text
-    assert "новое" not in text
+    assert "старое &lt;b&gt;" in text
+    assert "новое &amp; важное" in text
 
 
 def test_delete_notification_keeps_saved_content() -> None:
