@@ -23,6 +23,7 @@ router = APIRouter(prefix="/api", tags=["user"])
 _AVATAR_REFRESH_SECONDS = 24 * 60 * 60
 _DOWNLOAD_SEMAPHORE = asyncio.Semaphore(2)
 _REFRESH_TASKS: set[asyncio.Task[None]] = set()
+_IN_FLIGHT_DIALOGS: set[int] = set()
 _LOCKS: dict[int, asyncio.Lock] = {}
 
 
@@ -55,7 +56,10 @@ def _placeholder(name: str | None) -> Response:
     return Response(
         svg,
         media_type="image/svg+xml",
-        headers={"Cache-Control": "private, max-age=3600, stale-while-revalidate=86400"},
+        headers={
+            "Cache-Control": "no-store, max-age=0",
+            "X-Avatar-Pending": "1",
+        },
     )
 
 
@@ -94,6 +98,10 @@ async def _telegram_avatar_bytes(peer_id: int) -> bytes | None:
 
 async def _refresh_cache(dialog_id: int, peer_id: int, path: Path) -> None:
     async with _lock_for(dialog_id):
+        if path.is_file() and path.stat().st_size > 0:
+            age = max(0, time.time() - path.stat().st_mtime)
+            if age < _AVATAR_REFRESH_SECONDS:
+                return
         payload = await _telegram_avatar_bytes(peer_id)
         if not payload:
             return
@@ -103,10 +111,32 @@ async def _refresh_cache(dialog_id: int, peer_id: int, path: Path) -> None:
         temporary.replace(path)
 
 
+async def _run_refresh(dialog_id: int, peer_id: int, path: Path) -> None:
+    try:
+        await _refresh_cache(dialog_id, peer_id, path)
+    finally:
+        _IN_FLIGHT_DIALOGS.discard(dialog_id)
+
+
 def _schedule_refresh(dialog_id: int, peer_id: int, path: Path) -> None:
-    task = asyncio.create_task(_refresh_cache(dialog_id, peer_id, path))
+    if dialog_id in _IN_FLIGHT_DIALOGS:
+        return
+    _IN_FLIGHT_DIALOGS.add(dialog_id)
+    task = asyncio.create_task(_run_refresh(dialog_id, peer_id, path))
     _REFRESH_TASKS.add(task)
     task.add_done_callback(_REFRESH_TASKS.discard)
+
+
+def _cached_avatar(path: Path, dialog_id: int) -> Response:
+    stat = path.stat()
+    return Response(
+        path.read_bytes(),
+        media_type="image/jpeg",
+        headers={
+            "Cache-Control": "private, max-age=86400, stale-while-revalidate=604800",
+            "ETag": f'"avatar-{dialog_id}-{int(stat.st_mtime)}-{stat.st_size}"',
+        },
+    )
 
 
 @router.get("/avatar/{token}", include_in_schema=False)
@@ -133,21 +163,7 @@ async def dialog_avatar(
         age = max(0, time.time() - path.stat().st_mtime)
         if age >= _AVATAR_REFRESH_SECONDS:
             _schedule_refresh(dialog.id, dialog.peer_telegram_id, path)
-        return Response(
-            path.read_bytes(),
-            media_type="image/jpeg",
-            headers={
-                "Cache-Control": "private, max-age=86400, stale-while-revalidate=604800",
-                "ETag": f'"avatar-{dialog.id}-{int(path.stat().st_mtime)}-{path.stat().st_size}"',
-            },
-        )
+        return _cached_avatar(path, dialog.id)
 
-    await _refresh_cache(dialog.id, dialog.peer_telegram_id, path)
-    if path.is_file() and path.stat().st_size > 0:
-        return Response(
-            path.read_bytes(),
-            media_type="image/jpeg",
-            headers={"Cache-Control": "private, max-age=86400, stale-while-revalidate=604800"},
-        )
-
+    _schedule_refresh(dialog.id, dialog.peer_telegram_id, path)
     return _placeholder(dialog.peer_name or dialog.peer_username)
