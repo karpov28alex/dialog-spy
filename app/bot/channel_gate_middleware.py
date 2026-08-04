@@ -23,6 +23,7 @@ ADMIN_CALLBACK_PREFIXES = (
     "funnel:fields:",
     "funnel:edit:",
 )
+GROUP_TYPES = {"group", "supergroup"}
 
 
 def _subscription_keyboard(channel_url: str) -> InlineKeyboardMarkup:
@@ -51,13 +52,10 @@ def _is_admin_control(event: TelegramObject) -> bool:
 
 
 class ChannelGateMiddleware(BaseMiddleware):
-    """Require a live channel membership check for every user interaction.
+    """Require a live channel membership check for private user interactions.
 
-    `/start` is allowed through so registration and referral attribution still
-    run; its handler performs the same channel check before showing the menu.
-    The verification callback is allowed through. Administrators bypass the
-    gate only for admin commands and admin-panel callbacks, not for ordinary
-    user buttons such as Profile, Statistics, Settings, or Archive.
+    Group archive traffic is handled silently and must never trigger a channel
+    subscription prompt for every participant in the group.
     """
 
     async def __call__(
@@ -66,6 +64,9 @@ class ChannelGateMiddleware(BaseMiddleware):
         event: TelegramObject,
         data: dict[str, Any],
     ) -> Any:
+        if isinstance(event, Message) and str(event.chat.type) in GROUP_TYPES:
+            return await handler(event, data)
+
         user = data.get("event_from_user")
         user_id = getattr(user, "id", None)
         if user_id is None:
