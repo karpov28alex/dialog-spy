@@ -16,9 +16,14 @@ from app.bot.menu_editor_handlers import router as menu_editor_router  # noqa: E
 from app.bot.admin_menu_editor_patch import router as admin_menu_editor_router  # noqa: E402
 from app.bot.profile_card_handlers import router as profile_card_router  # noqa: E402
 from app.bot.statistics_card_v2_handlers import router as statistics_card_router  # noqa: E402
+from app.bot.product_experience_handlers import (  # noqa: E402
+    branded_send_access_screen,
+    router as product_experience_router,
+)
 from app.bot.user_experience_handlers import router as user_experience_router  # noqa: E402
 from app.bot.archive_handlers import router as archive_router  # noqa: E402
 from app.bot.group_archive_handlers import router as group_archive_router  # noqa: E402
+from app.bot import access_funnel as access_funnel_module  # noqa: E402
 from app.bot.access_funnel import router as access_funnel_router  # noqa: E402
 from app.bot.impaya import cancel_command, pay_callback, pay_command  # noqa: E402
 from app.bot.subscription import subscription_command  # noqa: E402
@@ -48,8 +53,9 @@ _drop_named_handlers(legacy_command_router.message, {"start"})
 legacy_command_router.callback_query.handlers.clear()
 legacy_admin_router.callback_query.handlers.clear()
 
-# user_handlers overlaps with access_funnel, profile_card and user_experience.
-# Do not mount it as a second top-level router.
+# Preserve the complete access funnel while replacing only its successful
+# product presentation with the branded welcome card.
+access_funnel_module.send_access_screen = branded_send_access_screen
 
 # Every user interaction must pass a live informational-channel check.
 dispatcher.message.outer_middleware(ChannelGateMiddleware())
@@ -71,11 +77,14 @@ dispatcher.callback_query.register(pay_callback, F.data == "impaya:pay")
 dispatcher.include_router(channel_check_override_router)
 dispatcher.include_router(access_center_router)
 
-# The access funnel is the single owner of /start.
+# The access funnel remains the single owner of /start.
 dispatcher.include_router(access_funnel_router)
 dispatcher.include_router(group_archive_router)
 dispatcher.include_router(menu_editor_router)
 dispatcher.include_router(admin_menu_editor_router)
+# Product experience owns /stats and user:stats; the legacy card router remains
+# mounted as a compatibility fallback for any older callback contracts.
+dispatcher.include_router(product_experience_router)
 dispatcher.include_router(statistics_card_router)
 dispatcher.include_router(profile_card_router)
 dispatcher.include_router(user_experience_router)
