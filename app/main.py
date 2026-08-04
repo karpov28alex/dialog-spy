@@ -40,6 +40,7 @@ from app.bot.user_intelligence import router as user_intelligence_bot_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.db.session import engine
+from app.modules.archive import router as archive_v2_router
 from app.platform.access.router import router as platform_access_router
 from app.services.funnel_scheduler import funnel_scheduler_loop
 from app.services.media_recovery_scheduler import media_recovery_loop
@@ -103,6 +104,7 @@ app.add_middleware(
 )
 app.include_router(auth_router)
 app.include_router(user_router)
+app.include_router(archive_v2_router)
 app.include_router(global_search_router)
 app.include_router(access_center_router)
 app.include_router(platform_access_router)
