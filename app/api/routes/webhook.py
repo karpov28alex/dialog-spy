@@ -12,7 +12,7 @@ from app.bot.handlers import router as command_router
 from app.bot.setup import bot, dispatcher
 from app.business.events import format_delete_notification, format_edit_notification
 from app.core.config import get_settings
-from app.db.models import FailedUpdate, MessageVersion
+from app.db.models import FailedUpdate, MessageVersion, User
 from app.db.session import SessionLocal
 from app.modules.events.context import EventContextService
 from app.modules.media.queue import MediaQueueService
@@ -72,11 +72,7 @@ def _redacted_delete(config, message) -> str:
 
 
 async def _queue_connection_notification(session, *, update_id: int, connection) -> None:
-    user = await session.get(type(connection).owner.property.mapper.class_, connection.owner_user_id)
-    if user is None:
-        from app.db.models import User
-
-        user = await session.get(User, connection.owner_user_id)
+    user = await session.get(User, connection.owner_user_id)
     if user is None:
         return
     preferences = await context_service.ensure_preferences(session, user)
