@@ -3,8 +3,8 @@ from pathlib import Path
 
 def test_working_admin_loads_restored_module_navigation() -> None:
     source = Path("app/main.py").read_text(encoding="utf-8")
-    assert 'Path("app/static/admin/index.html").read_text' in source
-    assert '"/admin/restore-modules.js?v=1"' in source
+    assert '_admin_html_response("app/static/admin/index.html", enhancement)' in source
+    assert '"/admin/restore-modules.js?v=2"' in source
     assert "HTMLResponse" in source
 
 
