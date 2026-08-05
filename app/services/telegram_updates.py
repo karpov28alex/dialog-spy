@@ -10,7 +10,15 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.business.events import is_protected_message
-from app.db.models import BusinessConnection, Dialog, Media, Message, MessageVersion, ProcessedUpdate, User
+from app.db.models import (
+    BusinessConnection,
+    Dialog,
+    Media,
+    Message,
+    MessageVersion,
+    ProcessedUpdate,
+    User,
+)
 from app.services.users import activate_business_trial, register_or_update_user
 
 
@@ -20,6 +28,17 @@ def _as_datetime(value: Any, *, fallback: datetime | None = None) -> datetime:
     if isinstance(value, (int, float)):
         return datetime.fromtimestamp(value, tz=UTC)
     return fallback or datetime.now(UTC)
+
+
+def _jsonable_model(value: Any) -> dict[str, Any]:
+    """Serialize aiogram models without leaking Default sentinels into JSON."""
+    if value is None:
+        return {}
+    return value.model_dump(
+        mode="json",
+        exclude_none=True,
+        fallback=lambda item: None if item.__class__.__name__ == "Default" else str(item),
+    )
 
 
 def update_kind(payload: dict[str, Any]) -> str:
@@ -39,7 +58,12 @@ def update_kind(payload: dict[str, Any]) -> str:
 async def claim_update(session: AsyncSession, update_id: int, kind: str) -> bool:
     statement = (
         insert(ProcessedUpdate)
-        .values(update_id=update_id, update_type=kind, processed_at=datetime.now(UTC), status="processing")
+        .values(
+            update_id=update_id,
+            update_type=kind,
+            processed_at=datetime.now(UTC),
+            status="processing",
+        )
         .on_conflict_do_nothing(index_elements=[ProcessedUpdate.update_id])
         .returning(ProcessedUpdate.update_id)
     )
@@ -53,8 +77,13 @@ async def finish_update(session: AsyncSession, update_id: int) -> None:
         row.processed_at = datetime.now(UTC)
 
 
-async def upsert_business_connection(session: AsyncSession, event: TgBusinessConnection) -> BusinessConnection | None:
-    owner = await session.scalar(select(User).where(User.telegram_id == event.user.id).with_for_update())
+async def upsert_business_connection(
+    session: AsyncSession,
+    event: TgBusinessConnection,
+) -> BusinessConnection | None:
+    owner = await session.scalar(
+        select(User).where(User.telegram_id == event.user.id).with_for_update()
+    )
     if owner is None:
         owner, _ = await register_or_update_user(
             session,
@@ -70,7 +99,7 @@ async def upsert_business_connection(session: AsyncSession, event: TgBusinessCon
         .with_for_update()
     )
     now = datetime.now(UTC)
-    rights = event.rights.model_dump(mode="json") if event.rights else {}
+    rights = _jsonable_model(event.rights)
     if row is None:
         row = BusinessConnection(
             owner_user_id=owner.id,
@@ -95,7 +124,10 @@ async def upsert_business_connection(session: AsyncSession, event: TgBusinessCon
     return row
 
 
-async def _connection_for_message(session: AsyncSession, connection_id: str) -> BusinessConnection | None:
+async def _connection_for_message(
+    session: AsyncSession,
+    connection_id: str,
+) -> BusinessConnection | None:
     return await session.scalar(
         select(BusinessConnection).where(
             BusinessConnection.telegram_connection_id == connection_id,
@@ -104,7 +136,11 @@ async def _connection_for_message(session: AsyncSession, connection_id: str) -> 
     )
 
 
-async def _dialog_for_message(session: AsyncSession, connection: BusinessConnection, event: TgMessage) -> Dialog:
+async def _dialog_for_message(
+    session: AsyncSession,
+    connection: BusinessConnection,
+    event: TgMessage,
+) -> Dialog:
     dialog = await session.scalar(
         select(Dialog).where(
             Dialog.business_connection_id == connection.id,
@@ -112,7 +148,9 @@ async def _dialog_for_message(session: AsyncSession, connection: BusinessConnect
         )
     )
     peer = event.chat
-    peer_name = " ".join(part for part in [peer.first_name, peer.last_name] if part) or peer.title
+    peer_name = " ".join(
+        part for part in [peer.first_name, peer.last_name] if part
+    ) or peer.title
     event_date = _as_datetime(event.date)
     if dialog is None:
         dialog = Dialog(
@@ -149,30 +187,44 @@ def _media_from_message(event: TgMessage) -> list[dict[str, Any]]:
     for media_type, item in candidates:
         if item is None:
             continue
-        result.append({
-            "media_type": media_type,
-            "telegram_file_id": item.file_id,
-            "telegram_unique_file_id": item.file_unique_id,
-            "mime_type": getattr(item, "mime_type", None),
-            "filename": getattr(item, "file_name", None),
-            "size": getattr(item, "file_size", None),
-            "duration": getattr(item, "duration", None),
-            "width": getattr(item, "width", None),
-            "height": getattr(item, "height", None),
-            "is_protected": decision.allowed,
-        })
+        result.append(
+            {
+                "media_type": media_type,
+                "telegram_file_id": item.file_id,
+                "telegram_unique_file_id": item.file_unique_id,
+                "mime_type": getattr(item, "mime_type", None),
+                "filename": getattr(item, "file_name", None),
+                "size": getattr(item, "file_size", None),
+                "duration": getattr(item, "duration", None),
+                "width": getattr(item, "width", None),
+                "height": getattr(item, "height", None),
+                "is_protected": decision.allowed,
+            }
+        )
     return result
 
 
-async def _sync_message_media(session: AsyncSession, message: Message, event: TgMessage) -> list[Media]:
-    existing = list((await session.scalars(select(Media).where(Media.message_id == message.id))).all())
+async def _sync_message_media(
+    session: AsyncSession,
+    message: Message,
+    event: TgMessage,
+) -> list[Media]:
+    existing = list(
+        (
+            await session.scalars(
+                select(Media).where(Media.message_id == message.id)
+            )
+        ).all()
+    )
     known = {
-        (row.telegram_unique_file_id or "", row.media_type or "")
-        for row in existing
+        (row.telegram_unique_file_id or "", row.media_type or "") for row in existing
     }
     created: list[Media] = []
     for data in _media_from_message(event):
-        key = (data.get("telegram_unique_file_id") or "", data.get("media_type") or "")
+        key = (
+            data.get("telegram_unique_file_id") or "",
+            data.get("media_type") or "",
+        )
         if key in known:
             continue
         row = Media(message_id=message.id, **data)
@@ -184,7 +236,10 @@ async def _sync_message_media(session: AsyncSession, message: Message, event: Tg
     return created
 
 
-async def save_business_message(session: AsyncSession, event: TgMessage) -> tuple[Message | None, bool]:
+async def save_business_message(
+    session: AsyncSession,
+    event: TgMessage,
+) -> tuple[Message | None, bool]:
     if not event.business_connection_id:
         return None, False
     connection = await _connection_for_message(session, event.business_connection_id)
@@ -201,7 +256,11 @@ async def save_business_message(session: AsyncSession, event: TgMessage) -> tupl
     if existing:
         await _sync_message_media(session, existing, event)
         return existing, False
-    direction = "outgoing" if event.from_user and event.from_user.id == connection.business_user_id else "incoming"
+    direction = (
+        "outgoing"
+        if event.from_user and event.from_user.id == connection.business_user_id
+        else "incoming"
+    )
     sent_at = _as_datetime(event.date)
     message = Message(
         dialog_id=dialog.id,
@@ -212,43 +271,50 @@ async def save_business_message(session: AsyncSession, event: TgMessage) -> tupl
         direction=direction,
         text=event.text,
         caption=event.caption,
-        reply_to_message_id=event.reply_to_message.message_id if event.reply_to_message else None,
+        reply_to_message_id=(
+            event.reply_to_message.message_id if event.reply_to_message else None
+        ),
         sent_at=sent_at,
-        raw_metadata=event.model_dump(mode="json", exclude_none=True),
+        raw_metadata=_jsonable_model(event),
     )
     session.add(message)
     await session.flush()
-    session.add(MessageVersion(
-        message_id=message.id,
-        version_number=1,
-        text=message.text,
-        caption=message.caption,
-        created_at=sent_at,
-    ))
+    session.add(
+        MessageVersion(
+            message_id=message.id,
+            version_number=1,
+            text=message.text,
+            caption=message.caption,
+            created_at=sent_at,
+        )
+    )
     await _sync_message_media(session, message, event)
     connection.last_activity_at = datetime.now(UTC)
     return message, True
 
 
-async def edit_business_message(session: AsyncSession, event: TgMessage) -> tuple[Message | None, bool, str | None]:
+async def edit_business_message(
+    session: AsyncSession,
+    event: TgMessage,
+) -> tuple[Message | None, bool, str | None]:
     if not event.business_connection_id:
         return None, False, None
     connection = await _connection_for_message(session, event.business_connection_id)
     if connection is None:
         return None, False, None
     message = await session.scalar(
-        select(Message).where(
+        select(Message)
+        .where(
             Message.business_connection_id == connection.id,
             Message.telegram_chat_id == event.chat.id,
             Message.telegram_message_id == event.message_id,
-        ).with_for_update()
+        )
+        .with_for_update()
     )
     if message is None:
         message, _ = await save_business_message(session, event)
         return message, False, None
 
-    # Phantom tracks only actions performed by the interlocutor. Owner edits are
-    # deliberately ignored: no version, media mutation or notification is created.
     if message.direction == "outgoing":
         connection.last_activity_at = datetime.now(UTC)
         return message, False, None
@@ -262,9 +328,11 @@ async def edit_business_message(session: AsyncSession, event: TgMessage) -> tupl
     edited_at = _as_datetime(event.edit_date, fallback=datetime.now(UTC))
     current_version = int(
         await session.scalar(
-            select(func.coalesce(func.max(MessageVersion.version_number), 0))
-            .where(MessageVersion.message_id == message.id)
-        ) or 0
+            select(func.coalesce(func.max(MessageVersion.version_number), 0)).where(
+                MessageVersion.message_id == message.id
+            )
+        )
+        or 0
     )
     latest = await session.scalar(
         select(MessageVersion)
@@ -273,23 +341,28 @@ async def edit_business_message(session: AsyncSession, event: TgMessage) -> tupl
         .limit(1)
     )
     if latest is None or latest.text != message.text or latest.caption != message.caption:
-        session.add(MessageVersion(
-            message_id=message.id,
-            version_number=current_version + 1,
-            text=message.text,
-            caption=message.caption,
-            created_at=message.edited_at or edited_at,
-        ))
+        session.add(
+            MessageVersion(
+                message_id=message.id,
+                version_number=current_version + 1,
+                text=message.text,
+                caption=message.caption,
+                created_at=message.edited_at or edited_at,
+            )
+        )
     message.text = event.text
     message.caption = event.caption
     message.edited_at = edited_at
-    message.raw_metadata = event.model_dump(mode="json", exclude_none=True)
+    message.raw_metadata = _jsonable_model(event)
     connection.last_activity_at = datetime.now(UTC)
     await session.flush()
     return message, True, old_content
 
 
-async def delete_business_messages(session: AsyncSession, event: BusinessMessagesDeleted) -> list[Message | None]:
+async def delete_business_messages(
+    session: AsyncSession,
+    event: BusinessMessagesDeleted,
+) -> list[Message | None]:
     connection = await _connection_for_message(session, event.business_connection_id)
     if connection is None:
         return []
@@ -297,11 +370,13 @@ async def delete_business_messages(session: AsyncSession, event: BusinessMessage
     results: list[Message | None] = []
     for telegram_message_id in event.message_ids:
         message = await session.scalar(
-            select(Message).where(
+            select(Message)
+            .where(
                 Message.business_connection_id == connection.id,
                 Message.telegram_chat_id == event.chat.id,
                 Message.telegram_message_id == telegram_message_id,
-            ).with_for_update()
+            )
+            .with_for_update()
         )
         if message is None or message.is_deleted or message.direction == "outgoing":
             results.append(None)
