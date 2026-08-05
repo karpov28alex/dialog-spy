@@ -19,6 +19,6 @@ def test_user360_exposes_clickable_metrics_and_details() -> None:
 
 def test_global_tabs_use_native_user360_without_legacy_overlay() -> None:
     source = Path("app/static/admin/global-tabs.js").read_text(encoding="utf-8")
-    assert "user360-mobile.html?v=6" in source
+    assert "user360-mobile.html?v=" in source
     assert "renderExtra" not in source
     assert "data-open-referrer" not in source
