@@ -3,15 +3,22 @@
 
   const items = [
     { label: 'Главная', href: '/admin', match: pathname => pathname === '/admin' },
-    { label: 'Пользователи', href: '/admin/user360-mobile.html?v=3', match: pathname => pathname.includes('user360') },
-    { label: 'Диалоги', href: '/admin/dialogs-media.html?v=3', match: pathname => pathname.includes('dialog') },
-    { label: 'Статистика', href: '/admin/platform.html?v=3', match: pathname => pathname.includes('platform') || pathname.includes('analytics') },
-    { label: 'Операции', href: '/admin/operations.html?v=3', match: pathname => pathname.includes('operations') },
-    { label: 'Платежи', href: '/admin/billing-mobile.html?v=3', match: pathname => pathname.includes('billing') },
-    { label: 'Настройки', href: '/admin/funnel.html?v=3', match: pathname => pathname.includes('funnel') || pathname.includes('settings') },
+    { label: 'Пользователи', href: '/admin/user360-mobile.html?v=4', match: pathname => pathname.includes('user360') },
+    { label: 'Диалоги', href: '/admin/dialogs-media.html?v=4', match: pathname => pathname.includes('dialog') },
+    { label: 'Статистика', href: '/admin/platform.html?v=4', match: pathname => pathname.includes('platform') || pathname.includes('analytics') },
+    { label: 'Операции', href: '/admin/operations.html?v=4', match: pathname => pathname.includes('operations') },
+    { label: 'Платежи', href: '/admin/billing-mobile.html?v=4', match: pathname => pathname.includes('billing') },
+    { label: 'Настройки', href: '/admin/funnel.html?v=4', match: pathname => pathname.includes('funnel') || pathname.includes('settings') },
   ];
 
   const pathname = window.location.pathname;
+  if (pathname === '/admin') {
+    document.querySelectorAll('.nav').forEach(element => {
+      element.hidden = true;
+      element.setAttribute('aria-hidden', 'true');
+    });
+  }
+
   const nav = document.createElement('nav');
   nav.className = 'phantom-global-tabs';
   nav.dataset.phantomGlobalTabs = 'true';
