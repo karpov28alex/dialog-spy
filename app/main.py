@@ -252,7 +252,7 @@ async def mini_app_asset(asset_path: str):
 @app.get("/admin", include_in_schema=False)
 async def admin_app() -> FileResponse:
     return FileResponse(
-        "app/static/admin/stable.html",
+        "app/static/admin/index.html",
         headers={"Cache-Control": "no-store"},
     )
 
