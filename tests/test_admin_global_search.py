@@ -4,8 +4,10 @@ from pathlib import Path
 def test_global_search_is_available_on_every_admin_page() -> None:
     source = Path("app/static/admin/global-tabs.js").read_text(encoding="utf-8")
     assert "data-global-search-button" in source
-    assert "data-phantom-command" in source
-    assert "Ctrl K" in source
+    assert "dataset.phantomCommand = 'true'" in source
+    assert "phantom-command__panel" in source
+    assert "openCommand" in source
+    assert "event.key.toLowerCase() === 'k'" in source
     assert "event.key === '/'" in source
 
 
