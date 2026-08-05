@@ -22,7 +22,9 @@ def test_product_experience_contains_stories_charts_and_logo_loader() -> None:
 def test_shareable_statistics_owns_current_callback() -> None:
     setup = Path("app/bot/setup.py").read_text(encoding="utf-8")
     handler = Path("app/bot/product_experience_handlers.py").read_text(encoding="utf-8")
-    assert setup.index("product_experience_router") < setup.index("statistics_card_router")
+    product_mount = "dispatcher.include_router(product_experience_router)"
+    legacy_mount = "dispatcher.include_router(statistics_card_router)"
+    assert setup.index(product_mount) < setup.index(legacy_mount)
     assert 'F.data.in_({"user:stats", "product:stats"})' in handler
     assert "answer_photo" in handler
     assert "switch_inline_query" in handler
