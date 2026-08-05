@@ -1,11 +1,11 @@
 (() => {
   const modules = [
-    { label: "🔎 Поиск и User360", href: "/admin/user360-v2.html?v=1" },
-    { label: "💬 Диалоги пользователей", href: "/admin/dialogs-media.html?v=1" },
-    { label: "📊 Расширенная статистика", href: "/admin/platform.html?v=1" },
-    { label: "🩺 Операции и здоровье", href: "/admin/operations.html?v=1" },
-    { label: "💳 Платежи и доступ", href: "/admin/billing-v2-1.html?v=1" },
-    { label: "⚙️ Расширенные настройки", href: "/admin/funnel.html?v=1" },
+    { label: "🔎 Поиск и User360", href: "/admin/user360-mobile.html?v=2" },
+    { label: "💬 Диалоги пользователей", href: "/admin/dialogs-media.html?v=2" },
+    { label: "📊 Расширенная статистика", href: "/admin/platform.html?v=2" },
+    { label: "🩺 Операции и здоровье", href: "/admin/operations.html?v=2" },
+    { label: "💳 Платежи и доступ", href: "/admin/billing-mobile.html?v=2" },
+    { label: "⚙️ Расширенные настройки", href: "/admin/funnel.html?v=2" },
   ];
 
   function install() {
@@ -22,9 +22,7 @@
       const button = document.createElement("button");
       button.type = "button";
       button.textContent = item.label;
-      button.addEventListener("click", () => {
-        window.location.assign(item.href);
-      });
+      button.addEventListener("click", () => window.location.assign(item.href));
       nav.appendChild(button);
     }
   }
