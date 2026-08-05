@@ -20,7 +20,7 @@ def test_admin_shell_default_assets_exist() -> None:
     assets = (
         "operations.html",
         "dialogs-media.html",
-        "unified.html",
+        "platform.html",
         "user360-v2.html",
         "billing-v2-1.html",
         "funnel.html",
