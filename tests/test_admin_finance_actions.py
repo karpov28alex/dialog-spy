@@ -4,8 +4,9 @@ from pathlib import Path
 def test_global_tabs_hide_legacy_home_navigation() -> None:
     source = Path("app/static/admin/global-tabs.js").read_text(encoding="utf-8")
     assert "pathname === '/admin'" in source
-    assert "document.querySelectorAll('.nav')" in source
+    assert "document.querySelectorAll('.side, .nav, .top #logout')" in source
     assert "element.hidden = true" in source
+    assert "shell.style.display = 'block'" in source
 
 
 def test_mobile_billing_exposes_real_manual_charge_flow() -> None:
