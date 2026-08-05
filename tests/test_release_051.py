@@ -23,10 +23,14 @@ def test_edit_history_is_only_rendered_for_actually_edited_messages() -> None:
     assert "versions" in source
 
 
-def test_admin_shell_is_mobile_responsive_and_russian_localized() -> None:
-    source = Path("app/static/admin/stable.html").read_text(encoding="utf-8")
-    assert "@media(max-width:700px)" in source
-    assert 'lang="ru"' in source
-    assert "Операции" in source
-    assert "Диалоги" in source
-    assert "Воронка" in source
+def test_admin_is_mobile_responsive_and_russian_localized() -> None:
+    gateway = Path("app/static/admin/stable.html").read_text(encoding="utf-8")
+    control_center = Path("app/static/admin/index.html").read_text(encoding="utf-8")
+
+    assert 'lang="ru"' in gateway
+    assert 'name="viewport"' in gateway
+    assert "@media(max-width:1000px)" in control_center
+    assert "@media(max-width:560px)" in control_center
+    assert "Обзор" in control_center
+    assert "Пользователи" in control_center
+    assert "Система" in control_center
