@@ -7,7 +7,7 @@ from time import perf_counter
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from redis.asyncio import Redis
 from sqlalchemy import text
 
@@ -250,11 +250,12 @@ async def mini_app_asset(asset_path: str):
 
 
 @app.get("/admin", include_in_schema=False)
-async def admin_app() -> FileResponse:
-    return FileResponse(
-        "app/static/admin/index.html",
-        headers={"Cache-Control": "no-store"},
-    )
+async def admin_app() -> HTMLResponse:
+    source = Path("app/static/admin/index.html").read_text(encoding="utf-8")
+    enhancement = '<script src="/admin/restore-modules.js?v=1" defer></script>'
+    if enhancement not in source:
+        source = source.replace("</body>", f"{enhancement}</body>")
+    return HTMLResponse(source, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/admin/platform", include_in_schema=False)
