@@ -120,6 +120,14 @@
       const ownerLabel = owner => owner.username
         ? `@${owner.username}`
         : (owner.name || `Telegram ${owner.telegram_id}`);
+      const shortDate = value => value
+        ? new Date(value).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })
+        : '';
+      const renderAvatar = (source, name) => {
+        if (source) return `<img class="avatar" src="${safe(source)}" alt="">`;
+        const initial = String(name || '?').replace('@', '').trim().charAt(0).toUpperCase() || '?';
+        return `<span class="avatar">${safe(initial)}</span>`;
+      };
       const syncOwnerUrl = ownerId => {
         const url = new URL(window.location.href);
         if (ownerId) url.searchParams.set('user_id', String(ownerId));
@@ -140,14 +148,14 @@
           syncOwnerUrl(null);
           selectedOwner.innerHTML = '';
           ownerResults.innerHTML = '';
-          window.loadDialogs();
+          loadDialogs();
         };
         const dialogsRoot = document.getElementById('dialogs');
         dialogsRoot.innerHTML = data.items.length
-          ? data.items.map(item => `<button class="dialog" data-dialog="${item.id}">${window.avatar(item.avatar, item.display_name)}<span class="dialog-content"><span class="dialog-top"><span class="dialog-name">${safe(item.display_name || 'Диалог')}</span><span class="time">${window.shortTime(item.last_message_at)}</span></span><span class="preview">Только архив ${safe(ownerLabel(owner))}</span><span class="owner">${item.messages_count} сообщ.</span></span></button>`).join('')
+          ? data.items.map(item => `<button class="dialog" data-dialog="${item.id}">${renderAvatar(item.avatar, item.display_name)}<span class="dialog-content"><span class="dialog-top"><span class="dialog-name">${safe(item.display_name || 'Диалог')}</span><span class="time">${shortDate(item.last_message_at)}</span></span><span class="preview">Только архив ${safe(ownerLabel(owner))}</span><span class="owner">${item.messages_count} сообщ.</span></span></button>`).join('')
           : '<div class="empty">У владельца пока нет сохранённых диалогов</div>';
         dialogsRoot.querySelectorAll('[data-dialog]').forEach(button => {
-          button.onclick = () => window.openDialog(Number(button.dataset.dialog), button);
+          button.onclick = () => openDialog(Number(button.dataset.dialog), button);
         });
         syncOwnerUrl(owner.id);
       };
