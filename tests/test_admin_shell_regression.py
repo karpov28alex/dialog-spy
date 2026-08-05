@@ -5,14 +5,16 @@ def test_admin_shell_avoids_browser_global_collisions() -> None:
     source = Path("app/static/admin/stable.html").read_text(encoding="utf-8")
     assert "const frames=" not in source
     assert "const frameMap=" in source
-    assert "window.addEventListener('error'" in source
+    assert "frame.src='about:blank'" in source
+    assert "frame.src.endsWith('/admin')" in source
 
 
 def test_admin_shell_validates_login_token_and_has_visible_failure_state() -> None:
     source = Path("app/static/admin/stable.html").read_text(encoding="utf-8")
     assert "if(!data.access_token)" in source
-    assert "showLoadError" in source
+    assert "showError" in source
     assert "Раздел загружается слишком долго" in source
+    assert "location.replace('/admin?v=3.0.2')" in source
 
 
 def test_admin_shell_default_assets_exist() -> None:
