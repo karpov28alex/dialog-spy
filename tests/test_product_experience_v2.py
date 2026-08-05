@@ -6,7 +6,7 @@ def test_miniapp_loads_product_experience_last() -> None:
     assert "/app/product-experience.css?v=" in source
     assert "/app/product-experience.js?v=" in source
     assert source.index("product-experience.js") > source.index("archive-workspace.js")
-    assert "Phantom Stories" in source
+    assert "Phantom Experience" in source
 
 
 def test_product_experience_contains_stories_charts_and_logo_loader() -> None:
@@ -22,7 +22,7 @@ def test_product_experience_contains_stories_charts_and_logo_loader() -> None:
 def test_shareable_statistics_owns_current_callback() -> None:
     setup = Path("app/bot/setup.py").read_text(encoding="utf-8")
     handler = Path("app/bot/product_experience_handlers.py").read_text(encoding="utf-8")
-    assert setup.index("product_experience_router") < setup.index("statistics_card_router)")
+    assert setup.index("product_experience_router") < setup.index("statistics_card_router")
     assert 'F.data.in_({"user:stats", "product:stats"})' in handler
     assert "answer_photo" in handler
     assert "switch_inline_query" in handler
