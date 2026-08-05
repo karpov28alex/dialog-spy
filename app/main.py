@@ -249,29 +249,35 @@ async def mini_app_asset(asset_path: str):
     return FileResponse(path, headers={"Cache-Control": "no-store"})
 
 
-@app.get("/admin", include_in_schema=False)
-async def admin_app() -> HTMLResponse:
-    source = Path("app/static/admin/index.html").read_text(encoding="utf-8")
-    enhancement = '<script src="/admin/restore-modules.js?v=1" defer></script>'
-    if enhancement not in source:
-        source = source.replace("</body>", f"{enhancement}</body>")
+_ADMIN_TABS_STYLE = '<link rel="stylesheet" href="/admin/global-tabs.css?v=1">'
+_ADMIN_TABS_SCRIPT = '<script src="/admin/global-tabs.js?v=1" defer></script>'
+
+
+def _admin_html_response(path: str | Path, *extra_scripts: str) -> HTMLResponse:
+    source = Path(path).read_text(encoding="utf-8")
+    if _ADMIN_TABS_STYLE not in source:
+        source = source.replace("</head>", f"{_ADMIN_TABS_STYLE}</head>")
+    scripts = [_ADMIN_TABS_SCRIPT, *extra_scripts]
+    for script in scripts:
+        if script not in source:
+            source = source.replace("</body>", f"{script}</body>")
     return HTMLResponse(source, headers={"Cache-Control": "no-store"})
 
 
+@app.get("/admin", include_in_schema=False)
+async def admin_app() -> HTMLResponse:
+    enhancement = '<script src="/admin/restore-modules.js?v=2" defer></script>'
+    return _admin_html_response("app/static/admin/index.html", enhancement)
+
+
 @app.get("/admin/platform", include_in_schema=False)
-async def admin_platform_shell() -> FileResponse:
-    return FileResponse(
-        "app/static/admin/unified.html",
-        headers={"Cache-Control": "no-store"},
-    )
+async def admin_platform_shell() -> HTMLResponse:
+    return _admin_html_response("app/static/admin/unified.html")
 
 
 @app.get("/admin/dialogs", include_in_schema=False)
-async def admin_dialog_viewer() -> FileResponse:
-    return FileResponse(
-        "app/static/admin/dialogs-media.html",
-        headers={"Cache-Control": "no-store"},
-    )
+async def admin_dialog_viewer() -> HTMLResponse:
+    return _admin_html_response("app/static/admin/dialogs-media.html")
 
 
 @app.get("/admin/{asset_path:path}", include_in_schema=False)
@@ -279,4 +285,6 @@ async def admin_asset(asset_path: str):
     path = Path("app/static/admin") / asset_path
     if not path.is_file():
         return RedirectResponse(url="/admin", status_code=307)
+    if path.suffix.lower() == ".html":
+        return _admin_html_response(path)
     return FileResponse(path, headers={"Cache-Control": "no-store"})
