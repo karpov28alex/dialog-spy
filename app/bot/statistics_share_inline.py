@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.types import (
     BufferedInputFile,
     InlineQuery,
@@ -37,7 +37,7 @@ def _share_caption(stats: dict, telegram_id: int) -> str:
 
 
 @router.inline_query(F.query.startswith("Моя статистика Phantom"))
-async def share_statistics_inline(query: InlineQuery) -> None:
+async def share_statistics_inline(query: InlineQuery, bot: Bot) -> None:
     stats = await _collect_stats(query.from_user.id)
     if stats is None:
         link = _referral_link(query.from_user.id)
@@ -63,14 +63,14 @@ async def share_statistics_inline(query: InlineQuery) -> None:
 
     avatars = await _leader_avatars(stats)
     caption = _share_caption(stats, query.from_user.id)
-    temporary = await query.bot.send_photo(
+    temporary = await bot.send_photo(
         chat_id=query.from_user.id,
         photo=BufferedInputFile(_render(stats, avatars), filename="phantom-statistics.png"),
         caption=caption,
     )
     photo = temporary.photo[-1] if temporary.photo else None
     try:
-        await query.bot.delete_message(query.from_user.id, temporary.message_id)
+        await bot.delete_message(query.from_user.id, temporary.message_id)
     except Exception:
         pass
 
