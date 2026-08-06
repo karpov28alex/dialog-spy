@@ -7,6 +7,7 @@ def test_complete_user_menu_keeps_all_product_sections() -> None:
     for label in (
         "Открыть Mini App",
         "Статистика",
+        "Подписка",
         "Профиль",
         "Настройки",
         "Инструкция",
@@ -17,6 +18,7 @@ def test_complete_user_menu_keeps_all_product_sections() -> None:
 
     for callback in (
         'callback_data="user:stats"',
+        'callback_data="user:subscription"',
         'callback_data="user:profile"',
         'callback_data="user:settings"',
         'callback_data="help"',
@@ -37,11 +39,34 @@ def test_welcome_and_statistics_use_the_complete_keyboard() -> None:
 
 def test_handlers_for_restored_menu_are_mounted() -> None:
     setup = Path("app/bot/setup.py").read_text(encoding="utf-8")
-    user_handlers = Path("app/bot/user_handlers.py").read_text(encoding="utf-8")
+    editor = Path("app/bot/menu_editor_handlers.py").read_text(encoding="utf-8")
     experience = Path("app/bot/user_experience_handlers.py").read_text(encoding="utf-8")
 
     assert "dispatcher.include_router(product_experience_router)" in setup
     assert "dispatcher.include_router(profile_card_router)" in setup
-    assert "dispatcher.include_router(user_experience_router)" in setup
-    assert 'section == "settings"' in user_handlers
+    assert "dispatcher.include_router(menu_editor_router)" in setup
+    assert 'F.data == "user:settings"' in editor
+    assert 'F.data == "user:subscription"' in editor
+    assert 'F.data == "user:subscription:cancel"' in editor
+    assert "cancel_subscription" in editor
     assert 'F.data == "help"' in experience
+
+
+def test_admin_can_toggle_every_user_menu_button() -> None:
+    menu = Path("app/bot/enhanced_user_menu.py").read_text(encoding="utf-8")
+    editor = Path("app/bot/menu_editor_handlers.py").read_text(encoding="utf-8")
+
+    for field in (
+        "show_miniapp",
+        "show_stats",
+        "show_subscription",
+        "show_profile",
+        "show_settings",
+        "show_instruction",
+        "show_offer",
+    ):
+        assert field in menu
+        assert field in editor
+
+    assert 'callback_data=f"menuedit:toggle:{field}"' in editor
+    assert "изменения применяются сразу" in editor.lower()
