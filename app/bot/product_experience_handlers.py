@@ -11,6 +11,7 @@ from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
+    WebAppInfo,
 )
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
@@ -31,8 +32,12 @@ settings = get_settings()
 
 def _font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
     paths = (
-        "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf"
+        if bold
+        else "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+        if bold
+        else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     )
     for path in paths:
         try:
@@ -52,14 +57,12 @@ def _welcome_cover() -> bytes:
     image.paste(glow, (0, 0), glow)
     draw = ImageDraw.Draw(image)
     draw.rounded_rectangle((30, 30, 1170, 645), 42, outline="#7d2bd1", width=3)
-
     draw.arc((710, 95, 1040, 425), 270, 88, fill="#9a35ff", width=72)
     draw.polygon(((745, 315), (925, 420), (730, 555)), fill="#7623e3")
     draw.polygon(((690, 180), (895, 145), (1020, 235), (805, 270)), fill="#982fff")
     draw.polygon(((716, 148), (895, 125), (945, 185), (740, 215)), fill="#a33cff")
     draw.polygon(((760, 295), (828, 318), (790, 342)), fill="white")
     draw.polygon(((900, 310), (965, 286), (935, 337)), fill="white")
-
     draw.text((82, 105), "PHANTOM", font=_font(70, True), fill="white")
     draw.text((85, 205), "Приватный архив сообщений", font=_font(34), fill="#b9a9c9")
     draw.text((85, 350), "Сообщения не исчезают.", font=_font(42, True), fill="white")
@@ -72,7 +75,6 @@ def _welcome_cover() -> bytes:
 
 
 async def branded_send_access_screen(message: Message, user: User) -> None:
-    """Preserve the access funnel and show the complete branded product menu."""
     config = await get_funnel_config()
     channel_ok = not config.channel_required or await channel_gate_passed(
         __import__("app.bot.setup", fromlist=["bot"]).bot,
@@ -128,9 +130,8 @@ async def branded_send_access_screen(message: Message, user: User) -> None:
         "✏️ Правки, удаления и история сообщений.\n"
         "📸 Исчезающие фото, видео и голосовые.\n"
         "🕵️ Приватный просмотр и защищённый архив.\n\n"
-        "<blockquote>🔐 Мы не получаем доступ к вашему аккаунту. "
-        "Подключение полностью управляется вами.</blockquote>\n\n"
-        "👇 <b>Откройте Mini App или выберите нужный раздел.</b>"
+        "<blockquote>🔐 Подключение и доступ полностью управляются вами в Telegram.</blockquote>\n\n"
+        "👇 <b>Откройте Mini App и проверьте свой архив.</b>"
     )
     await message.answer_photo(
         BufferedInputFile(_welcome_cover(), filename="phantom-welcome.jpg"),
@@ -139,15 +140,18 @@ async def branded_send_access_screen(message: Message, user: User) -> None:
     )
 
 
-def _stats_keyboard(admin: bool = False) -> InlineKeyboardMarkup:
+def _stats_keyboard(admin: bool) -> InlineKeyboardMarkup:
     rows = [list(row) for row in enhanced_user_keyboard(admin).inline_keyboard]
-    rows.insert(
-        1,
-        [
-            InlineKeyboardButton(text="🚀 Поделиться", switch_inline_query="Моя статистика Phantom"),
-            InlineKeyboardButton(text="🔄 Обновить", callback_data="product:stats"),
-        ],
-    )
+    rows.insert(1, [
+        InlineKeyboardButton(
+            text="📲 Открыть статистику",
+            web_app=WebAppInfo(url=settings.mini_app_url),
+        )
+    ])
+    rows.extend([
+        [InlineKeyboardButton(text="🚀 Поделиться результатом", switch_inline_query="Моя статистика Phantom")],
+        [InlineKeyboardButton(text="🔄 Обновить", callback_data="product:stats")],
+    ])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -161,7 +165,7 @@ async def _shareable_stats(message: Message, telegram_id: int) -> None:
     card = BufferedInputFile(_render(stats, avatars), filename="phantom-my-year.png")
     totals = stats["totals"]
     caption = (
-        "<b>📊 Персональная статистика Phantom</b>\n\n"
+        "<b>📊 Мой цифровой архив Phantom</b>\n\n"
         f"💬 <b>{totals['messages']:,}</b> сообщений\n"
         f"✏️ <b>{totals['edited']:,}</b> изменений\n"
         f"🗑 <b>{totals['deleted']:,}</b> удалений\n"
