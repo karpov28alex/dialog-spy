@@ -12,7 +12,8 @@ def test_user360_mobile_uses_explicit_dom_references() -> None:
 def test_billing_mobile_renders_cards_not_wide_table() -> None:
     source = Path("app/static/admin/billing-mobile.html").read_text(encoding="utf-8")
     assert "<table" not in source
-    assert 'class="payment"' in source
+    assert 'class="operation"' in source
+    assert "function operationCard" in source
     assert "/api/admin/impaya/overview" in source
     assert "/api/admin/impaya/payments" in source
 
