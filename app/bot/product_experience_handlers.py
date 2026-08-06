@@ -14,6 +14,7 @@ from aiogram.types import (
     WebAppInfo,
 )
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from sqlalchemy import select
 
 from app.bot.admin_console import is_admin
 from app.bot.enhanced_user_menu import enhanced_user_keyboard
@@ -75,7 +76,9 @@ def _welcome_cover() -> bytes:
 
 
 async def branded_send_access_screen(message: Message, user: User) -> None:
+    """Show access guidance without ever hiding the product navigation."""
     config = await get_funnel_config()
+    admin = await is_admin(user.telegram_id)
     channel_ok = not config.channel_required or await channel_gate_passed(
         __import__("app.bot.setup", fromlist=["bot"]).bot,
         user_id=user.telegram_id,
@@ -87,6 +90,12 @@ async def branded_send_access_screen(message: Message, user: User) -> None:
         await message.answer(
             config.subscription_text,
             reply_markup=subscription_keyboard(config.channel_url),
+        )
+        await message.answer(
+            "<b>Все разделы Phantom уже доступны.</b>\n\n"
+            "Статистика и профиль подскажут, как завершить подключение. "
+            "Пробный период начнётся только после выполнения условий.",
+            reply_markup=enhanced_user_keyboard(admin),
         )
         return
 
@@ -108,7 +117,10 @@ async def branded_send_access_screen(message: Message, user: User) -> None:
     if started:
         await message.answer(config.trial_started_text.format(days=monetization.trial_days))
     if config.enabled and config.business_required and not business_connected and not state.active:
-        await message.answer(config.business_required_text)
+        await message.answer(
+            config.business_required_text,
+            reply_markup=enhanced_user_keyboard(admin),
+        )
         return
     if config.enabled and not state.active:
         from app.bot.access_funnel import expired_keyboard
@@ -123,6 +135,10 @@ async def branded_send_access_screen(message: Message, user: User) -> None:
                 referral_available,
             ),
         )
+        await message.answer(
+            "Вы можете продолжать пользоваться информационными разделами бота.",
+            reply_markup=enhanced_user_keyboard(admin),
+        )
         return
 
     caption = (
@@ -136,7 +152,7 @@ async def branded_send_access_screen(message: Message, user: User) -> None:
     await message.answer_photo(
         BufferedInputFile(_welcome_cover(), filename="phantom-welcome.jpg"),
         caption=caption,
-        reply_markup=enhanced_user_keyboard(await is_admin(user.telegram_id)),
+        reply_markup=enhanced_user_keyboard(admin),
     )
 
 
@@ -155,11 +171,36 @@ def _stats_keyboard(admin: bool) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+async def _connection_state(telegram_id: int) -> tuple[bool, bool]:
+    async with SessionLocal() as session:
+        user = await session.scalar(select(User).where(User.telegram_id == telegram_id))
+        if user is None:
+            return False, False
+        return True, await has_active_business(session, user.id)
+
+
 async def _shareable_stats(message: Message, telegram_id: int) -> None:
     status = await message.answer("✨ Собираю персональные факты и лидеров общения…")
+    exists, connected = await _connection_state(telegram_id)
+    if not exists:
+        await status.edit_text(
+            "Профиль ещё не создан. Отправьте /start.",
+            reply_markup=enhanced_user_keyboard(await is_admin(telegram_id)),
+        )
+        return
+    if not connected:
+        await status.edit_text(
+            "<b>📊 Статистика пока не собрана</b>\n\n"
+            "Вы ещё не подключили Phantom к автоматизации чатов. После подключения "
+            "бот начнёт сохранять диалоги, изменения, удаления и медиа.\n\n"
+            "Нажмите «📖 Инструкция», чтобы увидеть пошаговое подключение.",
+            reply_markup=enhanced_user_keyboard(await is_admin(telegram_id)),
+        )
+        return
+
     stats = await _collect_stats(telegram_id)
     if stats is None:
-        await status.edit_text("Профиль ещё не создан. Отправьте /start.")
+        await status.edit_text("Данные статистики пока недоступны.")
         return
     avatars = await _leader_avatars(stats)
     card = BufferedInputFile(_render(stats, avatars), filename="phantom-my-year.png")
@@ -189,6 +230,6 @@ async def stats_command(message: Message) -> None:
 
 @router.callback_query(F.data.in_({"user:stats", "product:stats"}))
 async def stats_callback(callback: CallbackQuery) -> None:
-    await callback.answer("Формирую карточку…")
+    await callback.answer("Проверяю данные…")
     if callback.message:
         await _shareable_stats(callback.message, callback.from_user.id)
