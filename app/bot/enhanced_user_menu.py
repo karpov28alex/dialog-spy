@@ -24,7 +24,7 @@ def _enabled(data: dict[str, str], field: str) -> bool:
 def _menu_config() -> dict[str, str]:
     redis = Redis.from_url(settings.redis_url, decode_responses=True, socket_timeout=1)
     try:
-        data = redis.hgetall(CONTENT_KEY)
+        data: dict[str, str] = redis.hgetall(CONTENT_KEY)
         return {
             "offer_url": data.get("offer_url") or DEFAULT_OFFER_URL,
             **{field: "1" if _enabled(data, field) else "0" for field in VISIBLE_FIELDS},
