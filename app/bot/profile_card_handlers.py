@@ -136,9 +136,9 @@ def _render_card(data: dict) -> bytes:
     draw.text((342, 208), data["name"], font=_font(38, True), fill="#ffffff")
     draw.text((344, 260), data["username"], font=_font(25), fill="#958aa8")
 
-    status = "TELEGRAM BUSINESS ПОДКЛЮЧЁН" if data["connected"] else "TELEGRAM BUSINESS НЕ ПОДКЛЮЧЁН"
+    status = "АВТОМАТИЗАЦИЯ ЧАТОВ ПОДКЛЮЧЕНА" if data["connected"] else "АВТОМАТИЗАЦИЯ ЧАТОВ НЕ ПОДКЛЮЧЕНА"
     status_color = "#51e49b" if data["connected"] else "#ff6d89"
-    draw.rounded_rectangle((342, 309, 850, 354), radius=20, fill="#151022", outline="#34214d", width=2)
+    draw.rounded_rectangle((342, 309, 930, 354), radius=20, fill="#151022", outline="#34214d", width=2)
     draw.ellipse((364, 323, 380, 339), fill=status_color)
     draw.text((398, 316), status, font=_font(20, True), fill=status_color)
 
@@ -174,6 +174,15 @@ async def _send_profile(target: Message, telegram_id: int) -> None:
     data = await _stats(telegram_id)
     if data is None:
         await target.answer("Профиль ещё не создан. Отправьте /start.", reply_markup=_profile_keyboard())
+        return
+    if not data["connected"]:
+        await target.answer(
+            "<b>👤 Ваш профиль Phantom</b>\n\n"
+            "Phantom ещё не подключён к автоматизации чатов, поэтому архив пока пуст. "
+            "После подключения здесь появятся диалоги, сообщения, изменения, удаления и медиа.\n\n"
+            "Нажмите «📖 Инструкция», чтобы выполнить подключение.",
+            reply_markup=_profile_keyboard(),
+        )
         return
     try:
         card = BufferedInputFile(_render_card(data), filename="phantom-profile.png")

@@ -31,7 +31,7 @@ def test_welcome_and_statistics_use_the_complete_keyboard() -> None:
     source = Path("app/bot/product_experience_handlers.py").read_text(encoding="utf-8")
 
     assert "from app.bot.enhanced_user_menu import enhanced_user_keyboard" in source
-    assert "reply_markup=enhanced_user_keyboard(await is_admin(user.telegram_id))" in source
+    assert "reply_markup=enhanced_user_keyboard(admin)" in source
     assert "rows = [list(row) for row in enhanced_user_keyboard(admin).inline_keyboard]" in source
     assert "reply_markup=_stats_keyboard(await is_admin(telegram_id))" in source
     assert "from app.bot.admin_console import is_admin, user_menu" not in source
@@ -71,3 +71,20 @@ def test_admin_can_toggle_every_user_menu_button() -> None:
 
     assert 'callback_data=f"menuedit:toggle:{field}"' in editor
     assert "изменения применяются сразу" in editor.lower()
+
+
+def test_access_gate_does_not_hide_informational_sections() -> None:
+    middleware = Path("app/bot/channel_gate_middleware.py").read_text(encoding="utf-8")
+    product = Path("app/bot/product_experience_handlers.py").read_text(encoding="utf-8")
+    profile = Path("app/bot/profile_card_handlers.py").read_text(encoding="utf-8")
+
+    for command in ("/menu", "/profile", "/settings", "/stats", "/help", "/subscription"):
+        assert command in middleware
+    for prefix in ('"user:"', '"product:"', '"help"'):
+        assert prefix in middleware
+    assert "if _is_user_navigation(event):" in middleware
+
+    assert "Все разделы Phantom уже доступны" in product
+    assert "Статистика пока не собрана" in product
+    assert "не подключили Phantom к автоматизации чатов" in product
+    assert "Phantom ещё не подключён к автоматизации чатов" in profile
