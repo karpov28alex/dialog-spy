@@ -3,7 +3,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from app.bot import handlers
 from app.bot.handlers import is_admin
-from app.bot.menu_editor_handlers import editor_keyboard
+from app.bot.menu_editor_handlers import editor_keyboard, get_menu_content
 
 router = Router(name="admin-menu-editor-entry")
 _original_admin_keyboard = handlers.admin_keyboard
@@ -29,7 +29,7 @@ async def open_menu_editor(callback: CallbackQuery) -> None:
     if callback.message:
         await callback.message.answer(
             "<b>Редактор пользовательского меню</b>\n\n"
-            "Выберите профиль, настройки, оферту или инструкцию.",
-            reply_markup=editor_keyboard(),
+            "Включайте и выключайте кнопки — изменения применяются сразу.",
+            reply_markup=editor_keyboard(await get_menu_content()),
         )
     await callback.answer()
