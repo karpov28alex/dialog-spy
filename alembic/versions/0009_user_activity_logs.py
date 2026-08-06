@@ -1,14 +1,14 @@
 """add user activity logs
 
-Revision ID: 0009_user_activity_logs
-Revises: 0008_dialog_avatar_registry
+Revision ID: 0009
+Revises: 0008
 """
 
 from alembic import op
 import sqlalchemy as sa
 
-revision = "0009_user_activity_logs"
-down_revision = "0008_dialog_avatar_registry"
+revision = "0009"
+down_revision = "0008"
 branch_labels = None
 depends_on = None
 
