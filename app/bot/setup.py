@@ -20,6 +20,7 @@ from app.bot.product_experience_handlers import (  # noqa: E402
     branded_send_access_screen,
     router as product_experience_router,
 )
+from app.bot import user_experience_handlers as user_experience_module  # noqa: E402
 from app.bot.user_experience_handlers import router as user_experience_router  # noqa: E402
 from app.bot.archive_handlers import router as archive_router  # noqa: E402
 from app.bot.group_archive_handlers import router as group_archive_router  # noqa: E402
@@ -27,8 +28,9 @@ from app.bot import access_funnel as access_funnel_module  # noqa: E402
 from app.bot.access_funnel import router as access_funnel_router  # noqa: E402
 from app.bot.impaya import cancel_command, pay_callback, pay_command  # noqa: E402
 from app.bot.subscription import subscription_command  # noqa: E402
-from app.bot import profile_card_handlers, user_handlers  # noqa: E402
+from app.bot import handlers as legacy_handlers, profile_card_handlers, user_handlers  # noqa: E402
 from app.bot.enhanced_user_menu import enhanced_user_keyboard  # noqa: E402
+from app.bot.instruction_store import instruction_content as synchronized_instruction_content  # noqa: E402
 
 # Legacy all-in-one routers are still imported by the webhook module for
 # backwards-compatible commands. Remove the handlers that are now implemented
@@ -52,6 +54,12 @@ def _drop_named_handlers(observer, names: set[str]) -> None:
 _drop_named_handlers(legacy_command_router.message, {"start"})
 legacy_command_router.callback_query.handlers.clear()
 legacy_admin_router.callback_query.handlers.clear()
+
+# Both the legacy command helpers and the current user-experience router must
+# read the same instruction. The synchronized reader also migrates text saved
+# by older menu-editor versions from the legacy Redis hash.
+legacy_handlers.instruction_content = synchronized_instruction_content
+user_experience_module.instruction_content = synchronized_instruction_content
 
 # Preserve the complete access funnel while replacing only its successful
 # product presentation with the branded welcome card.
