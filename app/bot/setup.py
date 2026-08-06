@@ -18,6 +18,11 @@ from app.bot.admin_menu_editor_patch import router as admin_menu_editor_router  
 from app.bot.profile_card_handlers import router as profile_card_router  # noqa: E402
 from app.bot.statistics_card_v2_handlers import router as statistics_card_router  # noqa: E402
 from app.bot.statistics_share_inline import router as statistics_share_inline_router  # noqa: E402
+from app.bot.statistics_share_card import (  # noqa: E402
+    router as statistics_share_card_router,
+    stats_keyboard,
+)
+from app.bot import product_experience_handlers as product_experience_module  # noqa: E402
 from app.bot.product_experience_handlers import (  # noqa: E402
     branded_send_access_screen,
     router as product_experience_router,
@@ -66,6 +71,9 @@ user_experience_module.instruction_content = synchronized_instruction_content
 # product presentation with the branded welcome card.
 access_funnel_module.send_access_screen = branded_send_access_screen
 
+# Use a callback-based share card that works without BotFather inline mode.
+product_experience_module._stats_keyboard = stats_keyboard
+
 # Every user interaction must pass a live informational-channel check.
 dispatcher.message.outer_middleware(ChannelGateMiddleware())
 dispatcher.callback_query.outer_middleware(ChannelGateMiddleware())
@@ -86,6 +94,7 @@ dispatcher.include_router(channel_check_override_router)
 dispatcher.include_router(access_center_router)
 dispatcher.include_router(instruction_publisher_router)
 dispatcher.include_router(statistics_share_inline_router)
+dispatcher.include_router(statistics_share_card_router)
 
 # The access funnel remains the single owner of /start.
 dispatcher.include_router(access_funnel_router)
