@@ -16,7 +16,22 @@ CONTENT_KEY = "dialog_spy:user_menu_content"
 DEFAULTS = {
     "settings": "Зелёная отметка означает, что функция включена. Нажмите кнопку для переключения.",
     "offer_url": "https://mooncloud.ltd/spy/terms.html#free",
+    "show_mini_app": "1",
+    "show_stats": "1",
+    "show_subscription": "1",
+    "show_profile": "1",
+    "show_settings": "1",
+    "show_instruction": "1",
     "show_offer": "1",
+}
+BUTTONS = {
+    "show_mini_app": "Mini App",
+    "show_stats": "Статистика",
+    "show_subscription": "Подписка",
+    "show_profile": "Профиль",
+    "show_settings": "Настройки",
+    "show_instruction": "Инструкция",
+    "show_offer": "Оферта",
 }
 
 
@@ -46,23 +61,32 @@ async def set_menu_content(field: str, value: str) -> None:
         await redis.aclose()
 
 
-def editor_keyboard(show_offer: bool = True) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
+def _is_on(data: dict[str, str], key: str) -> bool:
+    return data.get(key, DEFAULTS[key]) not in {"0", "false", "False", "off"}
+
+
+def editor_keyboard(data: dict[str, str]) -> InlineKeyboardMarkup:
+    rows = [
         [InlineKeyboardButton(text="⚙️ Текст настроек", callback_data="menuedit:settings")],
         [InlineKeyboardButton(text="📄 Ссылка оферты", callback_data="menuedit:offer")],
-        [InlineKeyboardButton(
-            text=f"{'✅' if show_offer else '❌'} Кнопка «Оферта»",
-            callback_data="menuedit:toggle_offer",
-        )],
+    ]
+    for key, label in BUTTONS.items():
+        rows.append([
+            InlineKeyboardButton(
+                text=f"{'✅' if _is_on(data, key) else '❌'} {label}",
+                callback_data=f"menuedit:toggle:{key}",
+            )
+        ])
+    rows.extend([
         [InlineKeyboardButton(text="📖 Текст инструкции", callback_data="menuedit:instruction")],
         [InlineKeyboardButton(text="👁 Предпросмотр", callback_data="menuedit:preview")],
         [InlineKeyboardButton(text="❌ Закрыть", callback_data="menuedit:cancel")],
     ])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 async def _editor_markup() -> InlineKeyboardMarkup:
-    data = await get_menu_content()
-    return editor_keyboard(data.get("show_offer", "1") == "1")
+    return editor_keyboard(await get_menu_content())
 
 
 @router.message(Command("settings"))
@@ -100,7 +124,8 @@ async def menu_editor(message: Message) -> None:
         await message.answer("Команда недоступна.")
         return
     await message.answer(
-        "<b>Редактор пользовательского меню</b>\n\nНастройте текст, ссылку и видимость оферты.",
+        "<b>Редактор пользовательского меню</b>\n\n"
+        "Включайте и скрывайте кнопки. Изменения применяются сразу.",
         reply_markup=await _editor_markup(),
     )
 
@@ -110,27 +135,37 @@ async def menu_editor_callback(callback: CallbackQuery, state: FSMContext) -> No
     if not await is_admin(callback.from_user.id):
         await callback.answer("Нет доступа", show_alert=True)
         return
-    action = callback.data.split(":", 1)[1]
-    if action == "cancel":
+    action = callback.data.split(":")
+    if len(action) < 2:
+        await callback.answer()
+        return
+    command = action[1]
+    if command == "cancel":
         await state.clear()
         await callback.answer("Закрыто")
         return
-    if action == "toggle_offer":
+    if command == "toggle" and len(action) == 3:
+        key = action[2]
+        if key not in BUTTONS:
+            await callback.answer("Неизвестная кнопка", show_alert=True)
+            return
         data = await get_menu_content()
-        enabled = data.get("show_offer", "1") == "1"
-        await set_menu_content("show_offer", "0" if enabled else "1")
+        enabled = _is_on(data, key)
+        await set_menu_content(key, "0" if enabled else "1")
         if callback.message:
             await callback.message.edit_reply_markup(reply_markup=await _editor_markup())
-        await callback.answer("Кнопка оферты выключена" if enabled else "Кнопка оферты включена")
+        await callback.answer(f"{BUTTONS[key]} {'скрыта' if enabled else 'показана'}")
         return
-    if action == "preview":
+    if command == "preview":
         data = await get_menu_content()
-        status = "показывается" if data.get("show_offer", "1") == "1" else "скрыта"
+        status_lines = [
+            f"{'✅' if _is_on(data, key) else '❌'} {label}"
+            for key, label in BUTTONS.items()
+        ]
         text = (
             "<b>Текущие настройки меню</b>\n\n"
-            f"<b>Настройки:</b> {data['settings']}\n\n"
-            f"<b>Оферта:</b> {data['offer_url']}\n"
-            f"<b>Кнопка оферты:</b> {status}"
+            + "\n".join(status_lines)
+            + f"\n\n<b>Оферта:</b> {data['offer_url']}"
         )
         if callback.message:
             await callback.message.answer(text, reply_markup=await _editor_markup())
@@ -141,13 +176,13 @@ async def menu_editor_callback(callback: CallbackQuery, state: FSMContext) -> No
         "offer": MenuEdit.offer,
         "instruction": MenuEdit.instruction,
     }
-    target = state_map.get(action)
+    target = state_map.get(command)
     if target is None:
         await callback.answer("Неизвестный раздел", show_alert=True)
         return
     await state.set_state(target)
     prompt = "Отправьте новый текст одним сообщением. HTML-разметка поддерживается."
-    if action == "offer":
+    if command == "offer":
         prompt = "Отправьте новую полную HTTPS-ссылку оферты."
     if callback.message:
         await callback.message.answer(prompt)
