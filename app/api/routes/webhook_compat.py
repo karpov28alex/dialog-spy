@@ -2,9 +2,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header, Request
 
+from app.api.routes.admin_activity import router as activity_router
 from app.api.routes.webhook import telegram_webhook
+from app.services import user_activity as _user_activity  # noqa: F401
 
 router = APIRouter(tags=["telegram"])
+router.include_router(activity_router)
 
 
 @router.post("/api/telegram/webhook/{secret}", status_code=200, include_in_schema=False)
