@@ -49,9 +49,14 @@ class ArchiveService:
             owner_user_id=owner_user_id, limit=limit, cursor=cursor
         )
         next_cursor = rows[-1].id if len(rows) > limit else None
+        page = rows[:limit]
+        dialog_ids = [dialog.id for dialog in page]
+        last_messages = await self._repository.last_messages(dialog_ids)
+        metrics = await self._repository.dialog_metrics(dialog_ids)
         items: list[DialogListItem] = []
-        for dialog in rows[:limit]:
-            last_message = await self._repository.last_message(dialog.id)
+        for dialog in page:
+            last_message = last_messages.get(dialog.id)
+            values = metrics.get(dialog.id, {})
             items.append(
                 DialogListItem(
                     id=dialog.id,
@@ -60,7 +65,11 @@ class ArchiveService:
                     avatar=self._avatar_url(owner_user_id, dialog.id)
                     if dialog.peer_telegram_id
                     else None,
-                    message_count=await self._repository.message_count(dialog.id),
+                    message_count=int(values.get("message_count", 0)),
+                    edited_count=int(values.get("edited_count", 0)),
+                    deleted_count=int(values.get("deleted_count", 0)),
+                    media_count=int(values.get("media_count", 0)),
+                    protected_media_count=int(values.get("protected_media_count", 0)),
                     last_message_at=dialog.last_message_at,
                     last_message_text=(last_message.text or last_message.caption)
                     if last_message
