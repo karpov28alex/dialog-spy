@@ -11,6 +11,10 @@ class DialogListItem(BaseModel):
     peer_username: str | None
     avatar: str | None
     message_count: int
+    edited_count: int = 0
+    deleted_count: int = 0
+    media_count: int = 0
+    protected_media_count: int = 0
     last_message_at: datetime | None
     last_message_text: str | None
     last_message_deleted: bool
