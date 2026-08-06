@@ -17,6 +17,7 @@ from app.bot.menu_editor_handlers import router as menu_editor_router  # noqa: E
 from app.bot.admin_menu_editor_patch import router as admin_menu_editor_router  # noqa: E402
 from app.bot.profile_card_handlers import router as profile_card_router  # noqa: E402
 from app.bot.statistics_card_v2_handlers import router as statistics_card_router  # noqa: E402
+from app.bot.statistics_share_inline import router as statistics_share_inline_router  # noqa: E402
 from app.bot.product_experience_handlers import (  # noqa: E402
     branded_send_access_screen,
     router as product_experience_router,
@@ -84,6 +85,7 @@ dispatcher.callback_query.register(pay_callback, F.data == "impaya:pay")
 dispatcher.include_router(channel_check_override_router)
 dispatcher.include_router(access_center_router)
 dispatcher.include_router(instruction_publisher_router)
+dispatcher.include_router(statistics_share_inline_router)
 
 # The access funnel remains the single owner of /start.
 dispatcher.include_router(access_funnel_router)
