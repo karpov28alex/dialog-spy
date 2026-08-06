@@ -21,14 +21,12 @@ def _menu_config() -> tuple[str, bool]:
         redis.close()
 
 
-def enhanced_user_keyboard() -> InlineKeyboardMarkup:
+def enhanced_user_keyboard(admin: bool = False) -> InlineKeyboardMarkup:
+    """Return the single complete keyboard used by every user-facing screen."""
     offer_url, show_offer = _menu_config()
     rows = [
         [InlineKeyboardButton(text="📱 Открыть Mini App", web_app=WebAppInfo(url=settings.mini_app_url))],
-        [
-            InlineKeyboardButton(text="📊 Статистика", callback_data="user:stats"),
-            InlineKeyboardButton(text="🔐 Доступ", callback_data="user:access"),
-        ],
+        [InlineKeyboardButton(text="📊 Статистика", callback_data="user:stats")],
         [
             InlineKeyboardButton(text="👤 Профиль", callback_data="user:profile"),
             InlineKeyboardButton(text="⚙️ Настройки", callback_data="user:settings"),
@@ -37,4 +35,6 @@ def enhanced_user_keyboard() -> InlineKeyboardMarkup:
     ]
     if show_offer:
         rows.append([InlineKeyboardButton(text="📄 Оферта", url=offer_url)])
+    if admin:
+        rows.append([InlineKeyboardButton(text="🛡 Админ-панель", callback_data="crm:home")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
