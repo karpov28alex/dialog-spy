@@ -11,11 +11,11 @@ from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
-    WebAppInfo,
 )
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-from app.bot.admin_console import is_admin, user_menu
+from app.bot.admin_console import is_admin
+from app.bot.enhanced_user_menu import enhanced_user_keyboard
 from app.bot.statistics_card_handlers import _collect_stats, _leader_avatars
 from app.bot.statistics_card_v2_handlers import _render
 from app.core.config import get_settings
@@ -53,7 +53,6 @@ def _welcome_cover() -> bytes:
     draw = ImageDraw.Draw(image)
     draw.rounded_rectangle((30, 30, 1170, 645), 42, outline="#7d2bd1", width=3)
 
-    # Compact Phantom mark inspired by the product logo.
     draw.arc((710, 95, 1040, 425), 270, 88, fill="#9a35ff", width=72)
     draw.polygon(((745, 315), (925, 420), (730, 555)), fill="#7623e3")
     draw.polygon(((690, 180), (895, 145), (1020, 235), (805, 270)), fill="#982fff")
@@ -62,7 +61,7 @@ def _welcome_cover() -> bytes:
     draw.polygon(((900, 310), (965, 286), (935, 337)), fill="white")
 
     draw.text((82, 105), "PHANTOM", font=_font(70, True), fill="white")
-    draw.text((85, 205), "Архив Telegram Business", font=_font(34), fill="#b9a9c9")
+    draw.text((85, 205), "Приватный архив сообщений", font=_font(34), fill="#b9a9c9")
     draw.text((85, 350), "Сообщения не исчезают.", font=_font(42, True), fill="white")
     draw.text((85, 414), "Правки не теряются.", font=_font(42, True), fill="white")
     draw.text((85, 478), "История остаётся вашей.", font=_font(42, True), fill="#bd68ff")
@@ -73,11 +72,7 @@ def _welcome_cover() -> bytes:
 
 
 async def branded_send_access_screen(message: Message, user: User) -> None:
-    """Drop-in replacement for access_funnel.send_access_screen.
-
-    It preserves the existing access funnel and changes only the successful
-    product presentation shown after all gates have passed.
-    """
+    """Preserve the access funnel and show the complete branded product menu."""
     config = await get_funnel_config()
     channel_ok = not config.channel_required or await channel_gate_passed(
         __import__("app.bot.setup", fromlist=["bot"]).bot,
@@ -134,24 +129,26 @@ async def branded_send_access_screen(message: Message, user: User) -> None:
         "📸 Исчезающие фото, видео и голосовые.\n"
         "🕵️ Приватный просмотр и защищённый архив.\n\n"
         "<blockquote>🔐 Мы не получаем доступ к вашему аккаунту. "
-        "Подключение управляется в настройках Telegram Business.</blockquote>\n\n"
-        "👇 <b>Откройте Mini App и проверьте свой архив.</b>"
+        "Подключение полностью управляется вами.</blockquote>\n\n"
+        "👇 <b>Откройте Mini App или выберите нужный раздел.</b>"
     )
     await message.answer_photo(
         BufferedInputFile(_welcome_cover(), filename="phantom-welcome.jpg"),
         caption=caption,
-        reply_markup=user_menu(await is_admin(user.telegram_id)),
+        reply_markup=enhanced_user_keyboard(await is_admin(user.telegram_id)),
     )
 
 
-def _stats_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="📲 Открыть статистику", web_app=WebAppInfo(url=settings.mini_app_url))],
-            [InlineKeyboardButton(text="🚀 Поделиться результатом", switch_inline_query="Моя статистика Phantom")],
-            [InlineKeyboardButton(text="🔄 Обновить", callback_data="product:stats")],
-        ]
+def _stats_keyboard(admin: bool = False) -> InlineKeyboardMarkup:
+    rows = [list(row) for row in enhanced_user_keyboard(admin).inline_keyboard]
+    rows.insert(
+        1,
+        [
+            InlineKeyboardButton(text="🚀 Поделиться", switch_inline_query="Моя статистика Phantom"),
+            InlineKeyboardButton(text="🔄 Обновить", callback_data="product:stats"),
+        ],
     )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 async def _shareable_stats(message: Message, telegram_id: int) -> None:
@@ -164,7 +161,7 @@ async def _shareable_stats(message: Message, telegram_id: int) -> None:
     card = BufferedInputFile(_render(stats, avatars), filename="phantom-my-year.png")
     totals = stats["totals"]
     caption = (
-        "<b>📊 Мой цифровой архив Phantom</b>\n\n"
+        "<b>📊 Персональная статистика Phantom</b>\n\n"
         f"💬 <b>{totals['messages']:,}</b> сообщений\n"
         f"✏️ <b>{totals['edited']:,}</b> изменений\n"
         f"🗑 <b>{totals['deleted']:,}</b> удалений\n"
@@ -173,7 +170,11 @@ async def _shareable_stats(message: Message, telegram_id: int) -> None:
         f"Обновлено: {datetime.now(UTC).strftime('%d.%m.%Y · %H:%M')} UTC"
     )
     await status.delete()
-    await message.answer_photo(card, caption=caption, reply_markup=_stats_keyboard())
+    await message.answer_photo(
+        card,
+        caption=caption,
+        reply_markup=_stats_keyboard(await is_admin(telegram_id)),
+    )
 
 
 @router.message(Command("stats"))
