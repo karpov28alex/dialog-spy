@@ -70,6 +70,68 @@ class ArchiveRepository:
             ).all()
         )
 
+    async def last_messages(self, dialog_ids: list[int]) -> dict[int, Message]:
+        if not dialog_ids:
+            return {}
+        statement = (
+            select(Message)
+            .where(Message.dialog_id.in_(dialog_ids))
+            .distinct(Message.dialog_id)
+            .order_by(Message.dialog_id, desc(Message.sent_at), desc(Message.id))
+        )
+        rows = list((await self._session.scalars(statement)).all())
+        return {row.dialog_id: row for row in rows}
+
+    async def dialog_metrics(self, dialog_ids: list[int]) -> dict[int, dict[str, int]]:
+        if not dialog_ids:
+            return {}
+        metrics: dict[int, dict[str, int]] = {
+            dialog_id: {
+                "message_count": 0,
+                "edited_count": 0,
+                "deleted_count": 0,
+                "media_count": 0,
+                "protected_media_count": 0,
+            }
+            for dialog_id in dialog_ids
+        }
+        message_rows = (
+            await self._session.execute(
+                select(
+                    Message.dialog_id,
+                    func.count(Message.id),
+                    func.count(Message.id).filter(Message.edited_at.is_not(None)),
+                    func.count(Message.id).filter(Message.is_deleted.is_(True)),
+                )
+                .where(Message.dialog_id.in_(dialog_ids))
+                .group_by(Message.dialog_id)
+            )
+        ).all()
+        for dialog_id, total, edited, deleted in message_rows:
+            metrics[int(dialog_id)].update(
+                message_count=int(total or 0),
+                edited_count=int(edited or 0),
+                deleted_count=int(deleted or 0),
+            )
+        media_rows = (
+            await self._session.execute(
+                select(
+                    Message.dialog_id,
+                    func.count(Media.id),
+                    func.count(Media.id).filter(Media.is_protected.is_(True)),
+                )
+                .join(Message, Message.id == Media.message_id)
+                .where(Message.dialog_id.in_(dialog_ids))
+                .group_by(Message.dialog_id)
+            )
+        ).all()
+        for dialog_id, total, protected in media_rows:
+            metrics[int(dialog_id)].update(
+                media_count=int(total or 0),
+                protected_media_count=int(protected or 0),
+            )
+        return metrics
+
     async def last_message(self, dialog_id: int) -> Message | None:
         return await self._session.scalar(
             select(Message)
