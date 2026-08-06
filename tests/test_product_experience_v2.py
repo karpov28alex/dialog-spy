@@ -1,14 +1,15 @@
 from pathlib import Path
 
 
-def test_miniapp_loads_product_experience_last() -> None:
+def test_miniapp_loads_single_product_experience_runtime() -> None:
     source = Path("app/static/miniapp/index.html").read_text(encoding="utf-8")
-    assert "/app/product-experience.css?v=" in source
-    assert "/app/product-experience.js?v=" in source
+    assert "/app/product-experience.css?v=0.17.2" in source
+    assert "/app/product-experience.js?v=0.17.2" in source
     assert source.index("product-experience.js") > source.index("archive-workspace.js")
-    assert "/app/phantom-redesign.css?v=0.17.0" in source
-    assert "/app/phantom-redesign.js?v=0.17.0" in source
-    assert "Phantom Redesign" in source
+    assert "/app/phantom-redesign.css?v=0.17.2" in source
+    assert "/app/phantom-redesign.js" not in source
+    assert "v0.17.2 · Phantom Mobile" in source
+    assert 'name="color-scheme" content="dark light"' in source
 
 
 def test_product_experience_contains_stories_charts_and_logo_loader() -> None:
@@ -45,6 +46,6 @@ def test_dialog_export_is_telegram_style_html() -> None:
     user_router = Path("app/api/routes/user.py").read_text(encoding="utf-8")
     assert '/export/dialogs/{dialog_id}.html' in route
     assert "Content-Disposition" in route
-    assert "message out" not in route  # direction is selected dynamically
+    assert "message out" not in route
     assert '"out" if item.direction == "outgoing" else "in"' in route
     assert "router.include_router(dialog_export_router)" in user_router
