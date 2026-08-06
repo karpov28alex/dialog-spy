@@ -56,7 +56,7 @@ def test_admin_can_toggle_every_user_menu_button() -> None:
     menu = Path("app/bot/enhanced_user_menu.py").read_text(encoding="utf-8")
     editor = Path("app/bot/menu_editor_handlers.py").read_text(encoding="utf-8")
 
-    for field in (
+    fields = (
         "show_miniapp",
         "show_stats",
         "show_subscription",
@@ -64,7 +64,8 @@ def test_admin_can_toggle_every_user_menu_button() -> None:
         "show_settings",
         "show_instruction",
         "show_offer",
-    ):
+    )
+    for field in fields:
         assert field in menu
         assert field in editor
 
