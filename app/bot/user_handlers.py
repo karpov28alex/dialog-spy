@@ -25,17 +25,8 @@ OFFER_URL = "https://mooncloud.ltd/spy/terms.html#free"
 
 
 def user_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="📱 Открыть Dialog Spy", web_app=WebAppInfo(url=settings.mini_app_url))],
-            [
-                InlineKeyboardButton(text="👤 Профиль", callback_data="user:profile"),
-                InlineKeyboardButton(text="⚙️ Настройки", callback_data="user:settings"),
-            ],
-            [InlineKeyboardButton(text="📖 Инструкция", callback_data="help")],
-            [InlineKeyboardButton(text="📄 Оферта", url=OFFER_URL)],
-        ]
-    )
+    from app.bot.enhanced_user_menu import enhanced_user_keyboard
+    return enhanced_user_keyboard()
 
 
 def _toggle_label(enabled: bool, on: str, off: str) -> str:
@@ -70,6 +61,26 @@ def settings_keyboard(prefs: UserSettings) -> InlineKeyboardMarkup:
     )
 
 
+def subscription_keyboard(active: bool, cancelled: bool) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    if active and not cancelled:
+        rows.append([
+            InlineKeyboardButton(
+                text="❌ Отключить автопродление",
+                callback_data="user:subscription:cancel",
+            )
+        ])
+    elif not active:
+        rows.append([
+            InlineKeyboardButton(
+                text="💳 Оформить подписку",
+                callback_data="impaya:pay",
+            )
+        ])
+    rows.append([InlineKeyboardButton(text="↩️ В меню", callback_data="user:menu")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
 async def _profile_text(telegram_id: int) -> str:
     async with SessionLocal() as session:
         user = await session.scalar(select(User).where(User.telegram_id == telegram_id))
@@ -80,43 +91,16 @@ async def _profile_text(telegram_id: int) -> str:
             .where(BusinessConnection.owner_user_id == user.id, BusinessConnection.is_active.is_(True))
             .order_by(BusinessConnection.id.desc())
         )
-        dialogs_count = int(
-            await session.scalar(select(func.count(Dialog.id)).where(Dialog.owner_user_id == user.id)) or 0
-        )
-        messages_count = int(
-            await session.scalar(
-                select(func.count(DbMessage.id))
-                .join(Dialog, Dialog.id == DbMessage.dialog_id)
-                .where(Dialog.owner_user_id == user.id)
-            ) or 0
-        )
-        edited_count = int(
-            await session.scalar(
-                select(func.count(DbMessage.id))
-                .join(Dialog, Dialog.id == DbMessage.dialog_id)
-                .where(Dialog.owner_user_id == user.id, DbMessage.edited_at.is_not(None))
-            ) or 0
-        )
-        deleted_count = int(
-            await session.scalar(
-                select(func.count(DbMessage.id))
-                .join(Dialog, Dialog.id == DbMessage.dialog_id)
-                .where(Dialog.owner_user_id == user.id, DbMessage.is_deleted.is_(True))
-            ) or 0
-        )
-        protected_count = int(
-            await session.scalar(
-                select(func.count(Media.id))
-                .join(DbMessage, DbMessage.id == Media.message_id)
-                .join(Dialog, Dialog.id == DbMessage.dialog_id)
-                .where(Dialog.owner_user_id == user.id, Media.is_protected.is_(True))
-            ) or 0
-        )
+        dialogs_count = int(await session.scalar(select(func.count(Dialog.id)).where(Dialog.owner_user_id == user.id)) or 0)
+        messages_count = int(await session.scalar(select(func.count(DbMessage.id)).join(Dialog, Dialog.id == DbMessage.dialog_id).where(Dialog.owner_user_id == user.id)) or 0)
+        edited_count = int(await session.scalar(select(func.count(DbMessage.id)).join(Dialog, Dialog.id == DbMessage.dialog_id).where(Dialog.owner_user_id == user.id, DbMessage.edited_at.is_not(None))) or 0)
+        deleted_count = int(await session.scalar(select(func.count(DbMessage.id)).join(Dialog, Dialog.id == DbMessage.dialog_id).where(Dialog.owner_user_id == user.id, DbMessage.is_deleted.is_(True))) or 0)
+        protected_count = int(await session.scalar(select(func.count(Media.id)).join(DbMessage, DbMessage.id == Media.message_id).join(Dialog, Dialog.id == DbMessage.dialog_id).where(Dialog.owner_user_id == user.id, Media.is_protected.is_(True))) or 0)
         last_activity = connection.last_activity_at if connection else None
         last_activity_text = last_activity.strftime("%d.%m.%Y %H:%M") if last_activity else "нет данных"
         return (
             "<b>👤 Профиль Dialog Spy</b>\n\n"
-            f"Telegram Business: <b>{'подключён' if connection else 'не подключён'}</b>\n"
+            f"Подключение: <b>{'активно' if connection else 'не активно'}</b>\n"
             f"Диалогов в архиве: <b>{dialogs_count}</b>\n"
             f"Сообщений сохранено: <b>{messages_count}</b>\n"
             f"Изменённых: <b>{edited_count}</b> · удалённых: <b>{deleted_count}</b>\n"
@@ -138,11 +122,11 @@ async def _settings(telegram_id: int) -> UserSettings | None:
         return prefs
 
 
-async def _subscription_text(telegram_id: int) -> str:
+async def _subscription_state(telegram_id: int) -> tuple[str, bool, bool]:
     async with SessionLocal() as session:
         user = await session.scalar(select(User).where(User.telegram_id == telegram_id))
         if user is None:
-            return "Профиль ещё не создан. Отправьте /start."
+            return "Профиль ещё не создан. Отправьте /start.", False, False
         subscription = await session.scalar(
             select(Subscription)
             .where(
@@ -154,13 +138,14 @@ async def _subscription_text(telegram_id: int) -> str:
         )
         if subscription:
             cancelled = "auto_renew_cancelled" in (subscription.source or "")
-            return (
-                "<b>💎 VIP-подписка</b>\n\n"
-                f"Статус: <b>активна</b>\n"
+            text = (
+                "<b>💎 Подписка</b>\n\n"
+                "Статус: <b>активна</b>\n"
                 f"Действует до: <b>{subscription.ends_at:%d.%m.%Y %H:%M}</b>\n"
                 f"Автопродление: <b>{'отключено' if cancelled else 'включено'}</b>"
             )
-        return "Актуальной подписки не найдено."
+            return text, True, cancelled
+        return "<b>💎 Подписка</b>\n\nАктивной подписки не найдено.", False, False
 
 
 async def cancel_subscription(telegram_id: int) -> bool:
@@ -184,11 +169,7 @@ async def cancel_subscription(telegram_id: int) -> bool:
         source = subscription.source or "payment"
         if marker not in source:
             subscription.source = f"{source}:{marker}"
-        await session.execute(
-            update(Payment)
-            .where(Payment.user_id == user.id, Payment.recurring.is_(True))
-            .values(recurring=False)
-        )
+        await session.execute(update(Payment).where(Payment.user_id == user.id, Payment.recurring.is_(True)).values(recurring=False))
         return True
 
 
@@ -206,10 +187,7 @@ async def start(message: Message, command: CommandObject) -> None:
             language_code=message.from_user.language_code,
             start_parameter=command.args,
         )
-    await message.answer(
-        "<b>Dialog Spy</b> — приватный архив Telegram Business.\n\nОсновные функции доступны в этом чате и в Mini App.",
-        reply_markup=user_keyboard(),
-    )
+    await message.answer("<b>Dialog Spy</b> — приватный архив сообщений.\n\nОсновные функции доступны в этом чате и в Mini App.", reply_markup=user_keyboard())
 
 
 @router.message(Command("menu"))
@@ -231,16 +209,14 @@ async def settings_command(message: Message) -> None:
     if prefs is None:
         await message.answer("Профиль ещё не создан. Отправьте /start.")
         return
-    await message.answer(
-        "<b>⚙️ Настройки</b>\n\nЗелёная отметка означает, что функция включена. Нажмите кнопку для переключения.",
-        reply_markup=settings_keyboard(prefs),
-    )
+    await message.answer("<b>⚙️ Настройки</b>\n\nЗелёная отметка означает, что функция включена. Нажмите кнопку для переключения.", reply_markup=settings_keyboard(prefs))
 
 
 @router.message(Command("subscription"))
 async def subscription_command(message: Message) -> None:
     if message.from_user:
-        await message.answer(await _subscription_text(message.from_user.id), reply_markup=user_keyboard())
+        text, active, cancelled = await _subscription_state(message.from_user.id)
+        await message.answer(text, reply_markup=subscription_keyboard(active, cancelled))
 
 
 @router.message(Command("cancel"))
@@ -248,10 +224,7 @@ async def cancel_command(message: Message) -> None:
     if not message.from_user:
         return
     if await cancel_subscription(message.from_user.id):
-        await message.answer(
-            "✅ Автоматическое продление отключено. VIP-доступ сохранится до конца уже оплаченного периода.",
-            reply_markup=user_keyboard(),
-        )
+        await message.answer("✅ Автоматическое продление отключено. Доступ сохранится до конца уже оплаченного периода.", reply_markup=user_keyboard())
     else:
         await message.answer("Актуальной подписки не найдено.", reply_markup=user_keyboard())
 
@@ -269,29 +242,29 @@ async def user_callback(callback: CallbackQuery) -> None:
     elif section == "profile":
         if callback.message:
             await callback.message.answer(await _profile_text(callback.from_user.id), reply_markup=user_keyboard())
+    elif section == "subscription":
+        if len(action) == 3 and action[2] == "cancel":
+            cancelled = await cancel_subscription(callback.from_user.id)
+            if callback.message:
+                text, active, is_cancelled = await _subscription_state(callback.from_user.id)
+                await callback.message.answer(text, reply_markup=subscription_keyboard(active, is_cancelled))
+            await callback.answer("Автопродление отключено" if cancelled else "Подписка не найдена", show_alert=not cancelled)
+            return
+        text, active, cancelled = await _subscription_state(callback.from_user.id)
+        if callback.message:
+            await callback.message.answer(text, reply_markup=subscription_keyboard(active, cancelled))
     elif section == "settings":
         prefs = await _settings(callback.from_user.id)
         if callback.message and prefs:
-            await callback.message.answer(
-                "<b>⚙️ Настройки</b>\n\nЗелёная отметка означает, что функция включена. Нажмите кнопку для переключения.",
-                reply_markup=settings_keyboard(prefs),
-            )
+            await callback.message.answer("<b>⚙️ Настройки</b>\n\nЗелёная отметка означает, что функция включена. Нажмите кнопку для переключения.", reply_markup=settings_keyboard(prefs))
     elif section == "toggle" and len(action) == 3:
         key = action[2]
-        allowed = {
-            "notifications_enabled",
-            "save_protected_media",
-            "notify_edits",
-            "notify_deletions",
-            "notify_protected_media",
-        }
+        allowed = {"notifications_enabled", "save_protected_media", "notify_edits", "notify_deletions", "notify_protected_media"}
         if key not in allowed:
             await callback.answer("Недоступная настройка", show_alert=True)
             return
         async with SessionLocal() as session, session.begin():
-            user = await session.scalar(
-                select(User).where(User.telegram_id == callback.from_user.id).with_for_update()
-            )
+            user = await session.scalar(select(User).where(User.telegram_id == callback.from_user.id).with_for_update())
             if user is None:
                 await callback.answer("Сначала отправьте /start", show_alert=True)
                 return
