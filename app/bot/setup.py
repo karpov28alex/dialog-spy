@@ -12,6 +12,7 @@ dispatcher = Dispatcher()
 from app.bot.channel_gate_middleware import ChannelGateMiddleware  # noqa: E402
 from app.bot.channel_check_override import router as channel_check_override_router  # noqa: E402
 from app.bot.access_center import router as access_center_router  # noqa: E402
+from app.bot.instruction_publisher import router as instruction_publisher_router  # noqa: E402
 from app.bot.menu_editor_handlers import router as menu_editor_router  # noqa: E402
 from app.bot.admin_menu_editor_patch import router as admin_menu_editor_router  # noqa: E402
 from app.bot.profile_card_handlers import router as profile_card_router  # noqa: E402
@@ -55,9 +56,8 @@ _drop_named_handlers(legacy_command_router.message, {"start"})
 legacy_command_router.callback_query.handlers.clear()
 legacy_admin_router.callback_query.handlers.clear()
 
-# Both the legacy command helpers and the current user-experience router must
-# read the same instruction. The synchronized reader also migrates text saved
-# by older menu-editor versions from the legacy Redis hash.
+# Keep old helper imports compatible while the explicit publisher router owns
+# /help and instruction editing. It is mounted before generic CRM handlers.
 legacy_handlers.instruction_content = synchronized_instruction_content
 user_experience_module.instruction_content = synchronized_instruction_content
 
@@ -80,10 +80,10 @@ dispatcher.message.register(cancel_command, Command("cancel"))
 dispatcher.message.register(subscription_command, Command("subscription"))
 dispatcher.callback_query.register(pay_callback, F.data == "impaya:pay")
 
-# The exact verification handler is independent of setup/access_funnel and must
-# run before the legacy funnel callback to guarantee a single response.
+# Exact handlers must run before generic access-funnel and CRM callbacks.
 dispatcher.include_router(channel_check_override_router)
 dispatcher.include_router(access_center_router)
+dispatcher.include_router(instruction_publisher_router)
 
 # The access funnel remains the single owner of /start.
 dispatcher.include_router(access_funnel_router)
