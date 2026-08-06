@@ -23,6 +23,26 @@ ADMIN_CALLBACK_PREFIXES = (
     "funnel:fields:",
     "funnel:edit:",
 )
+# Informational and account controls stay available before the channel gate.
+# The gate controls access/trial activation, not navigation through the bot.
+USER_COMMANDS = {
+    "/start",
+    "/menu",
+    "/profile",
+    "/settings",
+    "/stats",
+    "/help",
+    "/app",
+    "/access",
+    "/subscription",
+    "/cancel",
+}
+USER_CALLBACK_PREFIXES = (
+    "user:",
+    "product:",
+    "help",
+    "funnel:check_channel",
+)
 GROUP_TYPES = {"group", "supergroup"}
 
 
@@ -42,7 +62,6 @@ def _message_command(event: Message) -> str:
 
 
 def _is_admin_control(event: TelegramObject) -> bool:
-    """Allow admin bypass only inside the administrative control plane."""
     if isinstance(event, Message):
         return _message_command(event) in ADMIN_COMMANDS
     if isinstance(event, CallbackQuery):
@@ -51,12 +70,17 @@ def _is_admin_control(event: TelegramObject) -> bool:
     return False
 
 
-class ChannelGateMiddleware(BaseMiddleware):
-    """Require a live channel membership check for private user interactions.
+def _is_user_navigation(event: TelegramObject) -> bool:
+    if isinstance(event, Message):
+        return _message_command(event) in USER_COMMANDS
+    if isinstance(event, CallbackQuery):
+        callback_data = event.data or ""
+        return callback_data.startswith(USER_CALLBACK_PREFIXES)
+    return False
 
-    Group archive traffic is handled silently and must never trigger a channel
-    subscription prompt for every participant in the group.
-    """
+
+class ChannelGateMiddleware(BaseMiddleware):
+    """Protect gated product actions without hiding the public user menu."""
 
     async def __call__(
         self,
@@ -72,12 +96,10 @@ class ChannelGateMiddleware(BaseMiddleware):
         if user_id is None:
             return await handler(event, data)
 
-        if isinstance(event, Message):
-            if _message_command(event) == "/start":
-                return await handler(event, data)
-        elif isinstance(event, CallbackQuery):
-            if (event.data or "") == "funnel:check_channel":
-                return await handler(event, data)
+        # Profile, statistics, settings, subscription and help explain the
+        # current connection state themselves and must always remain usable.
+        if _is_user_navigation(event):
+            return await handler(event, data)
 
         if _is_admin_control(event) and await is_admin(user_id):
             return await handler(event, data)
