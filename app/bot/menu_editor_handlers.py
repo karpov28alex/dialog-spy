@@ -38,7 +38,7 @@ class MenuEdit(StatesGroup):
 async def get_menu_content() -> dict[str, str]:
     redis = Redis.from_url(settings.redis_url, decode_responses=True)
     try:
-        data = await redis.hgetall(CONTENT_KEY)
+        data: dict[str, str] = await redis.hgetall(CONTENT_KEY)
     finally:
         await redis.aclose()
     return {**DEFAULTS, **{key: value for key, value in data.items() if value}}
