@@ -6,7 +6,9 @@ def test_miniapp_loads_product_experience_last() -> None:
     assert "/app/product-experience.css?v=" in source
     assert "/app/product-experience.js?v=" in source
     assert source.index("product-experience.js") > source.index("archive-workspace.js")
-    assert "Phantom Experience" in source
+    assert "/app/phantom-redesign.css?v=0.17.0" in source
+    assert "/app/phantom-redesign.js?v=0.17.0" in source
+    assert "Phantom Redesign" in source
 
 
 def test_product_experience_contains_stories_charts_and_logo_loader() -> None:
