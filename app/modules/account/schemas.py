@@ -28,6 +28,7 @@ class MonetizationSummary(BaseModel):
     free_trial_enabled: bool
     show_trial_in_profile: bool
     show_tariffs: bool
+    commerce_visible: bool = True
     referral_available: bool
     referral_link: str
     payment_url: str
