@@ -67,8 +67,17 @@ class DialogSummary(BaseModel):
     avatar: str | None
 
 
+class DialogMetrics(BaseModel):
+    message_count: int = 0
+    edited_count: int = 0
+    deleted_count: int = 0
+    media_count: int = 0
+    protected_media_count: int = 0
+
+
 class DialogDetailResponse(BaseModel):
     dialog: DialogSummary
+    metrics: DialogMetrics
     messages: list[MessageItem]
     next_cursor: int | None
 
