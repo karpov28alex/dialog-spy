@@ -16,11 +16,16 @@ def test_dialog_list_exposes_full_history_metrics() -> None:
 def test_miniapp_filters_use_backend_archive_metrics() -> None:
     index = Path("app/static/miniapp/index.html").read_text(encoding="utf-8")
     bridge = Path("app/static/miniapp/archive-metrics.js").read_text(encoding="utf-8")
-    assert "/app/archive-metrics.js?v=0.17.4" in index
+    runtime = Path("app/static/miniapp/runtime-fixes.js").read_text(encoding="utf-8")
+    assert "/app/archive-metrics.js?v=0.17.6" in index
+    assert "/app/runtime-fixes.js?v=0.17.6" in index
     assert "item.edited_count" in bridge
     assert "item.deleted_count" in bridge
     assert "item.media_count" in bridge
     assert "archive-metric-markers" in bridge
+    assert "archiveEdited" in runtime
+    assert "archiveDeleted" in runtime
+    assert "archiveMedia" in runtime
 
 
 def test_statistics_share_uses_callback_photo_card() -> None:

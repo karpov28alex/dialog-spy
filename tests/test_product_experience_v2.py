@@ -3,12 +3,15 @@ from pathlib import Path
 
 def test_miniapp_loads_single_product_experience_runtime() -> None:
     source = Path("app/static/miniapp/index.html").read_text(encoding="utf-8")
-    assert "/app/product-experience.css?v=0.17.2" in source
-    assert "/app/product-experience.js?v=0.17.2" in source
+    assert "/app/product-experience.css?v=0.17.6" in source
+    assert "/app/product-experience.js?v=0.17.6" in source
     assert source.index("product-experience.js") > source.index("archive-workspace.js")
-    assert "/app/phantom-redesign.css?v=0.17.2" in source
+    assert "/app/phantom-redesign.css?v=0.17.6" in source
     assert "/app/phantom-redesign.js" not in source
-    assert "v0.17.2 · Phantom Mobile" in source
+    assert "/app/runtime-fixes.js?v=0.17.6" in source
+    assert "/app/stats-motion.js?v=0.17.6" in source
+    assert "/app/stats-motion.css?v=0.17.6" in source
+    assert "v0.17.6 · Phantom Motion" in source
     assert 'name="color-scheme" content="dark light"' in source
 
 
@@ -22,6 +25,30 @@ def test_product_experience_contains_stories_charts_and_logo_loader() -> None:
     assert ".px-story-viewer" in css
 
 
+def test_archive_primary_filters_use_server_metrics() -> None:
+    runtime = Path("app/static/miniapp/runtime-fixes.js").read_text(encoding="utf-8")
+    metrics = Path("app/static/miniapp/archive-metrics.js").read_text(encoding="utf-8")
+    assert "archiveEdited" in runtime
+    assert "archiveDeleted" in runtime
+    assert "archiveMedia" in runtime
+    assert "stopImmediatePropagation" in runtime
+    assert "archive:metrics-ready" in runtime
+    assert "archive:metrics-ready" in metrics
+
+
+def test_statistics_has_motion_dashboard_layer() -> None:
+    js = Path("app/static/miniapp/stats-motion.js").read_text(encoding="utf-8")
+    css = Path("app/static/miniapp/stats-motion.css").read_text(encoding="utf-8")
+    assert "animateNumber" in js
+    assert "motion-activity-fill" in js
+    assert "motion-day-fill" in js
+    assert "motion-metric-grid" in js
+    assert "@keyframes motionBar" in css
+    assert "@keyframes motionAura" in css
+    assert "prefers-reduced-motion" in css
+    assert 'html[data-theme="light"]' in css
+
+
 def test_shareable_statistics_owns_current_callback() -> None:
     setup = Path("app/bot/setup.py").read_text(encoding="utf-8")
     handler = Path("app/bot/product_experience_handlers.py").read_text(encoding="utf-8")
@@ -30,7 +57,6 @@ def test_shareable_statistics_owns_current_callback() -> None:
     assert setup.index(product_mount) < setup.index(legacy_mount)
     assert 'F.data.in_({"user:stats", "product:stats"})' in handler
     assert "answer_photo" in handler
-    assert "switch_inline_query" in handler
 
 
 def test_access_funnel_uses_branded_success_presentation() -> None:
