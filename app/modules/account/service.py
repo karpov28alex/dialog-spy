@@ -1,6 +1,8 @@
+from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.db.models import BusinessConnection, User
 from app.modules.account.schemas import (
     AccessSummary,
@@ -29,6 +31,19 @@ SETTINGS_FIELDS = (
     "language",
     "timezone",
 )
+MENU_CONTENT_KEY = "dialog_spy:user_menu_content"
+
+
+async def commerce_visible() -> bool:
+    """Use the bot admin menu switch as the single source of truth for sales UI."""
+    redis = Redis.from_url(get_settings().redis_url, decode_responses=True, socket_timeout=1)
+    try:
+        value = await redis.hget(MENU_CONTENT_KEY, "show_subscription")
+        return value not in {"0", "false", "False", "off"}
+    except Exception:
+        return True
+    finally:
+        await redis.aclose()
 
 
 class AccountService:
@@ -60,6 +75,7 @@ class AccountService:
         funnel = await get_funnel_config()
         state = await access_state(self._session, user)
         referral_link = self.referral_link(user)
+        sales_visible = await commerce_visible()
         return ProfileResponse(
             id=user.id,
             telegram_id=user.telegram_id,
@@ -90,10 +106,11 @@ class AccountService:
                 free_trial_enabled=config.free_trial_enabled,
                 show_trial_in_profile=config.show_trial_in_profile,
                 show_tariffs=config.show_tariffs,
+                commerce_visible=sales_visible,
                 referral_available=user.referral_bonus_granted_at is None,
                 referral_link=referral_link,
                 payment_url=funnel.payment_url or config.payment_placeholder_url,
-                plans=payment_plans(config) if config.show_tariffs else [],
+                plans=payment_plans(config) if config.show_tariffs and sales_visible else [],
             ),
         )
 
