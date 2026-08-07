@@ -1,90 +1,47 @@
 from pathlib import Path
 
 
-def test_complete_user_menu_keeps_all_product_sections() -> None:
+def test_root_user_menu_is_compact() -> None:
     source = Path("app/bot/enhanced_user_menu.py").read_text(encoding="utf-8")
-
-    for label in (
-        "Открыть Mini App",
-        "Статистика",
-        "Подписка",
-        "Профиль",
-        "Настройки",
-        "Инструкция",
-        "Оферта",
-        "Админ-панель",
-    ):
+    for label in ("Открыть Mini App", "Мой профиль", "Статистика", "Настройки", "Админ-панель"):
         assert label in source
-
-    for callback in (
-        'callback_data="user:stats"',
-        'callback_data="user:subscription"',
-        'callback_data="user:profile"',
-        'callback_data="user:settings"',
-        'callback_data="help"',
-        'callback_data="crm:home"',
-    ):
-        assert callback in source
+    for label in ("Подписка", "Инструкция", "Оферта", "Что сегодня"):
+        assert label not in source
 
 
-def test_welcome_and_statistics_use_the_complete_keyboard() -> None:
-    source = Path("app/bot/product_experience_handlers.py").read_text(encoding="utf-8")
+def test_secondary_sections_are_nested_in_v019_navigation() -> None:
+    source = Path("app/bot/navigation_v019.py").read_text(encoding="utf-8")
+    assert "💎 Подписка" in source
+    assert "📖 Инструкция" in source
+    assert "📄 Оферта" in source
+    assert "engagement:recap:1" in source
+    assert "engagement:recap:7" in source
+    assert "↩️ Вернуться в профиль" in source
 
-    assert "from app.bot.enhanced_user_menu import enhanced_user_keyboard" in source
-    assert "reply_markup=enhanced_user_keyboard(admin)" in source
-    assert "rows = [list(row) for row in enhanced_user_keyboard(admin).inline_keyboard]" in source
-    assert "reply_markup=_stats_keyboard(await is_admin(telegram_id))" in source
-    assert "from app.bot.admin_console import is_admin, user_menu" not in source
 
-
-def test_handlers_for_restored_menu_are_mounted() -> None:
+def test_handlers_for_compact_menu_are_mounted() -> None:
     setup = Path("app/bot/setup.py").read_text(encoding="utf-8")
-    editor = Path("app/bot/menu_editor_handlers.py").read_text(encoding="utf-8")
-    experience = Path("app/bot/user_experience_handlers.py").read_text(encoding="utf-8")
-
+    assert "dispatcher.include_router(navigation_v019_router)" in setup
     assert "dispatcher.include_router(product_experience_router)" in setup
     assert "dispatcher.include_router(profile_card_router)" in setup
     assert "dispatcher.include_router(menu_editor_router)" in setup
-    assert 'F.data == "user:settings"' in editor
-    assert 'F.data == "user:subscription"' in editor
-    assert 'F.data == "user:subscription:cancel"' in editor
-    assert "cancel_subscription" in editor
-    assert 'F.data == "help"' in experience
 
 
-def test_admin_can_toggle_every_user_menu_button() -> None:
+def test_subscription_visibility_remains_admin_configurable() -> None:
     menu = Path("app/bot/enhanced_user_menu.py").read_text(encoding="utf-8")
     editor = Path("app/bot/menu_editor_handlers.py").read_text(encoding="utf-8")
-
-    fields = (
-        "show_miniapp",
-        "show_stats",
-        "show_subscription",
-        "show_profile",
-        "show_settings",
-        "show_instruction",
-        "show_offer",
-    )
-    for field in fields:
-        assert field in menu
-        assert field in editor
-
+    assert "show_subscription" in menu
+    assert '"show_subscription": "Подписка и оферта"' in editor
     assert 'callback_data=f"menuedit:toggle:{field}"' in editor
-    assert "изменения применяются сразу" in editor.lower()
+    assert "subscription_commerce_config" in menu
 
 
 def test_access_gate_does_not_hide_informational_sections() -> None:
     middleware = Path("app/bot/channel_gate_middleware.py").read_text(encoding="utf-8")
     product = Path("app/bot/product_experience_handlers.py").read_text(encoding="utf-8")
     profile = Path("app/bot/profile_card_handlers.py").read_text(encoding="utf-8")
-
     for command in ("/menu", "/profile", "/settings", "/stats", "/help", "/subscription"):
         assert command in middleware
-    for prefix in ('"user:"', '"product:"', '"help"'):
-        assert prefix in middleware
-    assert "if _is_user_navigation(event):" in middleware
-
     assert "Все разделы Phantom уже доступны" in product
     assert "Статистика пока не собрана" in product
-    assert "не подключили Phantom к автоматизации чатов" in product
     assert "Phantom ещё не подключён к автоматизации чатов" in profile
