@@ -1,8 +1,46 @@
 const appRoot = document.querySelector('#app');
+let commerceVisible = true;
+let commerceConfigLoaded = false;
+
+async function loadCommerceConfig() {
+  try {
+    const response = await fetch('/api/ui-config', { cache: 'no-store' });
+    if (response.ok) {
+      const config = await response.json();
+      commerceVisible = config.commerce_visible !== false;
+    }
+  } catch (_) {
+    commerceVisible = true;
+  } finally {
+    commerceConfigLoaded = true;
+    polish();
+  }
+}
 
 function paymentHref(root) {
   const link = root.querySelector('a.retry[href]');
   return link?.href || 'https://game.hidenow.su';
+}
+
+function hideCommerce(root) {
+  if (!commerceConfigLoaded || commerceVisible) return false;
+
+  root.querySelectorAll('[data-go="subscription"]').forEach(control => {
+    const card = control.closest('.subscription-card');
+    if (card) card.remove();
+    else control.remove();
+  });
+  root.querySelectorAll('.subscription-card, .subscription-pay').forEach(node => node.remove());
+
+  const title = root.querySelector('.topbar .title');
+  if (title?.textContent?.trim() === 'Подписка') {
+    const page = root.querySelector('main.page');
+    if (page && page.dataset.commerceHidden !== '1') {
+      page.dataset.commerceHidden = '1';
+      page.innerHTML = '<section class="settings-card"><h3>Раздел временно недоступен</h3><p class="muted">Управление подпиской сейчас скрыто администратором.</p></section>';
+    }
+  }
+  return true;
 }
 
 function polishChannelGate(root) {
@@ -45,6 +83,7 @@ function polishChannelGate(root) {
 }
 
 function polishProfile(root) {
+  if (!commerceVisible) return;
   const button = root.querySelector('[data-go="subscription"]');
   if (!button) return;
   const section = button.closest('.settings-card');
@@ -58,6 +97,7 @@ function polishProfile(root) {
 }
 
 function polishSubscription(root) {
+  if (!commerceVisible) return;
   const title = root.querySelector('.topbar .title');
   if (title?.textContent?.trim() !== 'Подписка') return;
   const page = root.querySelector('main.page');
@@ -82,10 +122,12 @@ function polishSubscription(root) {
 function polish() {
   if (!appRoot) return;
   polishChannelGate(appRoot);
+  if (hideCommerce(appRoot)) return;
   polishProfile(appRoot);
   polishSubscription(appRoot);
 }
 
 const observer = new MutationObserver(polish);
 if (appRoot) observer.observe(appRoot, { childList: true, subtree: true });
+loadCommerceConfig();
 polish();
