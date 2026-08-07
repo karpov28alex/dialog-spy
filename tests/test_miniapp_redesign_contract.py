@@ -4,7 +4,7 @@ from pathlib import Path
 def test_redesign_uses_one_runtime_and_mobile_styles() -> None:
     source = Path("app/static/miniapp/index.html").read_text(encoding="utf-8")
     css = Path("app/static/miniapp/phantom-redesign.css").read_text(encoding="utf-8")
-    assert "/app/phantom-redesign.css?v=0.17.8" in source
+    assert "/app/phantom-redesign.css?v=0.18.0" in source
     assert "/app/phantom-redesign.js" not in source
     assert source.count("product-experience.js") == 1
     assert source.count("global-search.js") == 1
