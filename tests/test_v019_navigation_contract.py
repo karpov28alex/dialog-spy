@@ -21,7 +21,9 @@ def test_v019_navigation_replaces_old_messages_and_nests_subscription() -> None:
     assert source.count("↩️ Вернуться в профиль") >= 2
     assert "engagement:recap:1" in source
     assert "engagement:recap:7" in source
-    assert setup.index("navigation_v019_router") < setup.index("engagement_router")
+    navigation_mount = "dispatcher.include_router(navigation_v019_router)"
+    engagement_mount = "dispatcher.include_router(engagement_router)"
+    assert setup.index(navigation_mount) < setup.index(engagement_mount)
 
 
 def test_subscription_admin_switch_remains_shared_with_miniapp() -> None:
