@@ -9,6 +9,7 @@ from app.modules.archive.schemas import (
     DialogDetailResponse,
     DialogListItem,
     DialogListResponse,
+    DialogMetrics,
     DialogPatch,
     DialogSummary,
     MediaItem,
@@ -104,6 +105,8 @@ class ArchiveService:
         message_ids = [message.id for message in page]
         media_rows = await self._repository.media_for_messages(message_ids)
         version_rows = await self._repository.versions_for_messages(message_ids)
+        metric_map = await self._repository.dialog_metrics([dialog.id])
+        values = metric_map.get(dialog.id, {})
 
         media_by_message: dict[int, list[MediaItem]] = {}
         for media in media_rows:
@@ -158,6 +161,13 @@ class ArchiveService:
                 avatar=self._avatar_url(owner_user_id, dialog.id)
                 if dialog.peer_telegram_id
                 else None,
+            ),
+            metrics=DialogMetrics(
+                message_count=int(values.get("message_count", 0)),
+                edited_count=int(values.get("edited_count", 0)),
+                deleted_count=int(values.get("deleted_count", 0)),
+                media_count=int(values.get("media_count", 0)),
+                protected_media_count=int(values.get("protected_media_count", 0)),
             ),
             messages=messages,
             next_cursor=next_cursor,
