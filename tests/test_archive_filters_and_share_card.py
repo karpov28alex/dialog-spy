@@ -17,8 +17,8 @@ def test_miniapp_filters_use_backend_archive_metrics() -> None:
     index = Path("app/static/miniapp/index.html").read_text(encoding="utf-8")
     bridge = Path("app/static/miniapp/archive-metrics.js").read_text(encoding="utf-8")
     runtime = Path("app/static/miniapp/runtime-fixes.js").read_text(encoding="utf-8")
-    assert "/app/archive-metrics.js?v=0.17.7" in index
-    assert "/app/runtime-fixes.js?v=0.17.7" in index
+    assert "/app/archive-metrics.js?v=0.17.8" in index
+    assert "/app/runtime-fixes.js?v=0.17.8" in index
     assert "item.edited_count" in bridge
     assert "item.deleted_count" in bridge
     assert "item.media_count" in bridge
