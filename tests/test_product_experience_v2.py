@@ -3,15 +3,16 @@ from pathlib import Path
 
 def test_miniapp_loads_single_product_experience_runtime() -> None:
     source = Path("app/static/miniapp/index.html").read_text(encoding="utf-8")
-    assert "/app/product-experience.css?v=0.17.7" in source
-    assert "/app/product-experience.js?v=0.17.7" in source
+    assert "/app/product-experience.css?v=0.17.8" in source
+    assert "/app/product-experience.js?v=0.17.8" in source
     assert source.index("product-experience.js") > source.index("archive-workspace.js")
-    assert "/app/phantom-redesign.css?v=0.17.7" in source
+    assert "/app/phantom-redesign.css?v=0.17.8" in source
     assert "/app/phantom-redesign.js" not in source
-    assert "/app/runtime-fixes.js?v=0.17.7" in source
-    assert "/app/stats-motion.js?v=0.17.7" in source
-    assert "/app/stats-motion.css?v=0.17.7" in source
-    assert "v0.17.7 · Phantom Motion+" in source
+    assert "/app/runtime-fixes.js?v=0.17.8" in source
+    assert "/app/stats-motion.js?v=0.17.8" in source
+    assert "/app/stats-motion.css?v=0.17.8" in source
+    assert "/app/dialog-state.js?v=0.17.8" in source
+    assert "v0.17.8 · Phantom Events" in source
     assert 'name="color-scheme" content="dark light"' in source
 
 
