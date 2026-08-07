@@ -36,6 +36,12 @@ def _menu_config() -> dict[str, str]:
         redis.close()
 
 
+def subscription_commerce_config() -> tuple[bool, str]:
+    """Return the shared commercial-visibility flag and current offer URL."""
+    config = _menu_config()
+    return config["show_subscription"] == "1", config["offer_url"]
+
+
 def enhanced_user_keyboard(admin: bool = False) -> InlineKeyboardMarkup:
     """Return the single configurable keyboard used by every user-facing screen."""
     config = _menu_config()
@@ -52,8 +58,6 @@ def enhanced_user_keyboard(admin: bool = False) -> InlineKeyboardMarkup:
         rows.append([InlineKeyboardButton(text="✨ Что сегодня", callback_data="user:today")])
     if config["show_stats"] == "1":
         rows.append([InlineKeyboardButton(text="📊 Статистика", callback_data="user:stats")])
-    if config["show_subscription"] == "1":
-        rows.append([InlineKeyboardButton(text="💎 Подписка", callback_data="user:subscription")])
 
     account_row: list[InlineKeyboardButton] = []
     if config["show_profile"] == "1":
@@ -65,8 +69,6 @@ def enhanced_user_keyboard(admin: bool = False) -> InlineKeyboardMarkup:
 
     if config["show_instruction"] == "1":
         rows.append([InlineKeyboardButton(text="📖 Инструкция", callback_data="help")])
-    if config["show_offer"] == "1":
-        rows.append([InlineKeyboardButton(text="📄 Оферта", url=config["offer_url"])])
     if admin:
         rows.append([InlineKeyboardButton(text="🛡 Админ-панель", callback_data="crm:home")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
