@@ -1,0 +1,8 @@
+from pathlib import Path
+
+
+def test_recap_assets_use_single_cache_version() -> None:
+    source = Path("app/static/miniapp/index.html").read_text(encoding="utf-8")
+    assert "v0.18.1 · Phantom Recap" in source
+    assert "engagement-layer.js?v=0.18.1" in source
+    assert "engagement-layer.css?v=0.18.1" in source
