@@ -3,15 +3,15 @@ from pathlib import Path
 
 def test_miniapp_loads_single_product_experience_runtime() -> None:
     source = Path("app/static/miniapp/index.html").read_text(encoding="utf-8")
-    assert "/app/product-experience.css?v=0.17.6" in source
-    assert "/app/product-experience.js?v=0.17.6" in source
+    assert "/app/product-experience.css?v=0.17.7" in source
+    assert "/app/product-experience.js?v=0.17.7" in source
     assert source.index("product-experience.js") > source.index("archive-workspace.js")
-    assert "/app/phantom-redesign.css?v=0.17.6" in source
+    assert "/app/phantom-redesign.css?v=0.17.7" in source
     assert "/app/phantom-redesign.js" not in source
-    assert "/app/runtime-fixes.js?v=0.17.6" in source
-    assert "/app/stats-motion.js?v=0.17.6" in source
-    assert "/app/stats-motion.css?v=0.17.6" in source
-    assert "v0.17.6 · Phantom Motion" in source
+    assert "/app/runtime-fixes.js?v=0.17.7" in source
+    assert "/app/stats-motion.js?v=0.17.7" in source
+    assert "/app/stats-motion.css?v=0.17.7" in source
+    assert "v0.17.7 · Phantom Motion+" in source
     assert 'name="color-scheme" content="dark light"' in source
 
 
@@ -43,6 +43,11 @@ def test_statistics_has_motion_dashboard_layer() -> None:
     assert "motion-activity-fill" in js
     assert "motion-day-fill" in js
     assert "motion-metric-grid" in js
+    assert "IntersectionObserver" in js
+    assert "setupScrollMotion" in js
+    assert "--motion-shift" in css
+    assert "@media(max-width:430px)" in css
+    assert "grid-template-columns:1fr!important" in css
     assert "@keyframes motionBar" in css
     assert "@keyframes motionAura" in css
     assert "prefers-reduced-motion" in css

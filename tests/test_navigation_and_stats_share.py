@@ -5,7 +5,7 @@ def test_miniapp_uses_stable_navigation_layer() -> None:
     index = Path("app/static/miniapp/index.html").read_text(encoding="utf-8")
     script = Path("app/static/miniapp/navigation-stability.js").read_text(encoding="utf-8")
     app = Path("app/static/miniapp/app.js").read_text(encoding="utf-8")
-    assert "/app/navigation-stability.js?v=0.17.6" in index
+    assert "/app/navigation-stability.js?v=0.17.7" in index
     assert "Navigation is owned by app.js" in script
     assert "window.location.assign" not in script
     assert "history[push?'pushState':'replaceState']" in app
