@@ -14,7 +14,7 @@ def test_miniapp_loads_single_product_experience_runtime() -> None:
     assert "/app/dialog-state.js?v=0.18.0" in source
     assert "/app/engagement-layer.js?v=0.18.0" in source
     assert "/app/engagement-layer.css?v=0.18.0" in source
-    assert "v0.18.1 · Phantom Recap" in source
+    assert "v0.19.0 · Phantom Navigation" in source
     assert 'name="color-scheme" content="dark light"' in source
 
 
