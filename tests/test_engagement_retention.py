@@ -18,12 +18,12 @@ def test_bot_daily_and_weekly_recaps_are_visual_and_registered() -> None:
     assert "dispatcher.include_router(engagement_router)" in setup
 
 
-def test_daily_pulse_button_is_admin_configurable() -> None:
+def test_daily_and_weekly_recap_are_nested_under_statistics() -> None:
     menu = Path("app/bot/enhanced_user_menu.py").read_text(encoding="utf-8")
-    editor = Path("app/bot/menu_editor_handlers.py").read_text(encoding="utf-8")
-    assert '"show_today"' in menu
-    assert 'text="✨ Что сегодня"' in menu
-    assert '"show_today": "Что сегодня"' in editor
+    navigation = Path("app/bot/navigation_v019.py").read_text(encoding="utf-8")
+    assert "✨ Что сегодня" not in menu
+    assert "engagement:recap:1" in navigation
+    assert "engagement:recap:7" in navigation
 
 
 def test_miniapp_recap_is_single_runtime_and_uses_live_intelligence() -> None:
@@ -32,7 +32,7 @@ def test_miniapp_recap_is_single_runtime_and_uses_live_intelligence() -> None:
     css = Path("app/static/miniapp/engagement-layer.css").read_text(encoding="utf-8")
     assert index.count("engagement-layer.js") == 1
     assert index.count("engagement-layer.css") == 1
-    assert "v0.18.1 · Phantom Recap" in index
+    assert "v0.19.0 · Phantom Navigation" in index
     assert "/api/intelligence?days=7" in js
     assert "data-recap=\"today\"" in js
     assert "data-recap=\"week\"" in js
