@@ -1,76 +1,11 @@
 (() => {
   'use strict';
-
-  const app = document.getElementById('app');
-  if (!app) return;
-
-  const metrics = new Map();
-  const nativeFetch = window.fetch.bind(window);
-
-  window.fetch = async (...args) => {
-    const response = await nativeFetch(...args);
-    try {
-      const raw = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
-      const url = new URL(raw, location.href);
-      if (response.ok && url.pathname === '/api/dialogs') {
-        response.clone().json().then(payload => {
-          metrics.clear();
-          for (const item of payload.items || []) metrics.set(String(item.id), item);
-          apply();
-        }).catch(() => {});
-      }
-    } catch {}
-    return response;
-  };
-
-  function marker(card) {
-    let node = card.querySelector(':scope > .archive-metric-markers');
-    if (!node) {
-      node = document.createElement('span');
-      node.className = 'archive-metric-markers';
-      node.hidden = true;
-      card.appendChild(node);
-    }
-    return node;
-  }
-
-  function decorate(card) {
-    const item = metrics.get(String(card.dataset.dialog || ''));
-    if (!item) return;
-    const edited = Number(item.edited_count || 0);
-    const deleted = Number(item.deleted_count || 0);
-    const media = Number(item.media_count || 0);
-    const protectedMedia = Number(item.protected_media_count || 0);
-    card.dataset.archiveEdited = String(edited);
-    card.dataset.archiveDeleted = String(deleted);
-    card.dataset.archiveMedia = String(media);
-    card.dataset.archiveProtected = String(protectedMedia);
-    marker(card).textContent = [
-      edited ? `изменено ${edited}` : '',
-      deleted ? `удалено ${deleted}` : '',
-      media ? `медиа ${media}` : '',
-      protectedMedia ? `защищено ${protectedMedia}` : '',
-    ].filter(Boolean).join(' ');
-  }
-
-  function refreshSummary(cards) {
-    const summary = app.querySelector('.p2-dialog-summary');
-    if (!summary) return;
-    const values = [...summary.querySelectorAll('.p2-stat b')];
-    if (values.length < 3) return;
-    const rows = cards.map(card => metrics.get(String(card.dataset.dialog || ''))).filter(Boolean);
-    values[0].textContent = String(cards.length);
-    values[1].textContent = String(rows.reduce((sum, item) => sum + Number(item.edited_count || 0) + Number(item.deleted_count || 0), 0));
-    values[2].textContent = String(rows.reduce((sum, item) => sum + Number(item.media_count || 0), 0));
-  }
-
-  function apply() {
-    const cards = [...app.querySelectorAll('.dialog[data-dialog]')];
-    if (!cards.length) return;
-    cards.forEach(decorate);
-    refreshSummary(cards);
-  }
-
-  new MutationObserver(() => requestAnimationFrame(apply)).observe(app, {childList: true, subtree: true});
-  apply();
+  const app=document.getElementById('app');if(!app)return;
+  const metrics=new Map();const nativeFetch=window.fetch.bind(window);
+  window.fetch=async(...args)=>{const response=await nativeFetch(...args);try{const raw=typeof args[0]==='string'?args[0]:args[0]?.url||'';const url=new URL(raw,location.href);if(response.ok&&url.pathname==='/api/dialogs'){response.clone().json().then(payload=>{metrics.clear();for(const item of payload.items||[])metrics.set(String(item.id),item);apply();}).catch(()=>{});}}catch{}return response;};
+  function marker(card){let node=card.querySelector(':scope > .archive-metric-markers');if(!node){node=document.createElement('span');node.className='archive-metric-markers';node.hidden=true;card.appendChild(node);}return node;}
+  function decorate(card){const item=metrics.get(String(card.dataset.dialog||''));if(!item)return;const edited=Number(item.edited_count||0),deleted=Number(item.deleted_count||0),media=Number(item.media_count||0),protectedMedia=Number(item.protected_media_count||0);card.dataset.archiveEdited=String(edited);card.dataset.archiveDeleted=String(deleted);card.dataset.archiveMedia=String(media);card.dataset.archiveProtected=String(protectedMedia);marker(card).textContent=[edited?`изменено ${edited}`:'',deleted?`удалено ${deleted}`:'',media?`медиа ${media}`:'',protectedMedia?`защищено ${protectedMedia}`:''].filter(Boolean).join(' ');}
+  function refreshSummary(cards){const summary=app.querySelector('.p2-dialog-summary');if(!summary)return;const values=[...summary.querySelectorAll('.p2-stat b')];if(values.length<3)return;const rows=cards.map(card=>metrics.get(String(card.dataset.dialog||''))).filter(Boolean);values[0].textContent=String(cards.length);values[1].textContent=String(rows.reduce((sum,item)=>sum+Number(item.edited_count||0)+Number(item.deleted_count||0),0));values[2].textContent=String(rows.reduce((sum,item)=>sum+Number(item.media_count||0),0));}
+  function apply(){const cards=[...app.querySelectorAll('.dialog[data-dialog]')];if(!cards.length)return;cards.forEach(decorate);refreshSummary(cards);document.dispatchEvent(new CustomEvent('archive:metrics-ready'));}
+  let queued=false;new MutationObserver(()=>{if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;apply();});}).observe(app,{childList:true,subtree:true});apply();
 })();
