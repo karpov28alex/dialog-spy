@@ -17,11 +17,10 @@ BUTTONS = {
     "show_miniapp": "Mini App",
     "show_today": "Что сегодня",
     "show_stats": "Статистика",
-    "show_subscription": "Подписка",
+    "show_subscription": "Подписка и оферта",
     "show_profile": "Профиль",
     "show_settings": "Настройки",
     "show_instruction": "Инструкция",
-    "show_offer": "Оферта",
 }
 DEFAULTS = {
     "settings": "Зелёная отметка означает, что функция включена. Нажмите кнопку для переключения.",
@@ -85,11 +84,28 @@ async def _editor_markup() -> InlineKeyboardMarkup:
     return editor_keyboard(await get_menu_content())
 
 
-def _subscription_keyboard(admin: bool) -> InlineKeyboardMarkup:
-    from app.bot.enhanced_user_menu import enhanced_user_keyboard
+def _settings_keyboard(prefs, commerce_enabled: bool) -> InlineKeyboardMarkup:
+    from app.bot import user_handlers
 
+    base = user_handlers.settings_keyboard(prefs)
+    rows = [list(row) for row in base.inline_keyboard]
+    menu_row = rows.pop() if rows else []
+    if commerce_enabled:
+        rows.append([InlineKeyboardButton(text="💎 Подписка", callback_data="user:subscription")])
+    if menu_row:
+        rows.append(menu_row)
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def _subscription_keyboard(admin: bool) -> InlineKeyboardMarkup:
+    from app.bot.enhanced_user_menu import enhanced_user_keyboard, subscription_commerce_config
+
+    enabled, offer_url = subscription_commerce_config()
     base = enhanced_user_keyboard(admin=admin)
-    rows = [[InlineKeyboardButton(text="🚫 Отключить автопродление", callback_data="user:subscription:cancel")]]
+    rows: list[list[InlineKeyboardButton]] = []
+    if enabled:
+        rows.append([InlineKeyboardButton(text="📄 Оферта", url=offer_url)])
+        rows.append([InlineKeyboardButton(text="🚫 Отключить автопродление", callback_data="user:subscription:cancel")])
     rows.extend([list(row) for row in base.inline_keyboard])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -107,7 +123,7 @@ async def configurable_settings_command(message: Message) -> None:
     content = await get_menu_content()
     await message.answer(
         f"<b>⚙️ Настройки</b>\n\n{content['settings']}",
-        reply_markup=user_handlers.settings_keyboard(prefs),
+        reply_markup=_settings_keyboard(prefs, _is_enabled(content, "show_subscription")),
     )
 
 
@@ -120,7 +136,7 @@ async def configurable_settings_callback(callback: CallbackQuery) -> None:
         content = await get_menu_content()
         await callback.message.answer(
             f"<b>⚙️ Настройки</b>\n\n{content['settings']}",
-            reply_markup=user_handlers.settings_keyboard(prefs),
+            reply_markup=_settings_keyboard(prefs, _is_enabled(content, "show_subscription")),
         )
     await callback.answer()
 
@@ -129,6 +145,10 @@ async def configurable_settings_callback(callback: CallbackQuery) -> None:
 async def subscription_callback(callback: CallbackQuery) -> None:
     from app.bot import user_handlers
 
+    content = await get_menu_content()
+    if not _is_enabled(content, "show_subscription"):
+        await callback.answer("Раздел подписки временно недоступен", show_alert=True)
+        return
     if callback.message:
         text = await user_handlers._subscription_text(callback.from_user.id)
         await callback.message.answer(
@@ -163,7 +183,8 @@ async def menu_editor(message: Message) -> None:
         return
     await message.answer(
         "<b>Редактор пользовательского меню</b>\n\n"
-        "Включайте и выключайте кнопки — изменения применяются сразу.",
+        "Включайте и выключайте кнопки — изменения применяются сразу. "
+        "Тумблер «Подписка и оферта» одновременно управляет ботом и Mini App.",
         reply_markup=await _editor_markup(),
     )
 
