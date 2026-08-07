@@ -3,16 +3,18 @@ from pathlib import Path
 
 def test_miniapp_loads_single_product_experience_runtime() -> None:
     source = Path("app/static/miniapp/index.html").read_text(encoding="utf-8")
-    assert "/app/product-experience.css?v=0.17.8" in source
-    assert "/app/product-experience.js?v=0.17.8" in source
+    assert "/app/product-experience.css?v=0.18.0" in source
+    assert "/app/product-experience.js?v=0.18.0" in source
     assert source.index("product-experience.js") > source.index("archive-workspace.js")
-    assert "/app/phantom-redesign.css?v=0.17.8" in source
+    assert "/app/phantom-redesign.css?v=0.18.0" in source
     assert "/app/phantom-redesign.js" not in source
-    assert "/app/runtime-fixes.js?v=0.17.8" in source
-    assert "/app/stats-motion.js?v=0.17.8" in source
-    assert "/app/stats-motion.css?v=0.17.8" in source
-    assert "/app/dialog-state.js?v=0.17.8" in source
-    assert "v0.17.8 · Phantom Events" in source
+    assert "/app/runtime-fixes.js?v=0.18.0" in source
+    assert "/app/stats-motion.js?v=0.18.0" in source
+    assert "/app/stats-motion.css?v=0.18.0" in source
+    assert "/app/dialog-state.js?v=0.18.0" in source
+    assert "/app/engagement-layer.js?v=0.18.0" in source
+    assert "/app/engagement-layer.css?v=0.18.0" in source
+    assert "v0.18.0 · Phantom Pulse" in source
     assert 'name="color-scheme" content="dark light"' in source
 
 
@@ -51,6 +53,19 @@ def test_statistics_has_motion_dashboard_layer() -> None:
     assert "grid-template-columns:1fr!important" in css
     assert "@keyframes motionBar" in css
     assert "@keyframes motionAura" in css
+    assert "prefers-reduced-motion" in css
+    assert 'html[data-theme="light"]' in css
+
+
+def test_engagement_layer_has_daily_pulse_and_motion() -> None:
+    js = Path("app/static/miniapp/engagement-layer.js").read_text(encoding="utf-8")
+    css = Path("app/static/miniapp/engagement-layer.css").read_text(encoding="utf-8")
+    assert "PHANTOM PULSE" in js
+    assert "Сегодня в архиве" in js
+    assert "animateCounts" in js
+    assert "/api/intelligence?days=7" in js
+    assert "--pulse-shift" in css
+    assert "@keyframes pulseAmbient" in css
     assert "prefers-reduced-motion" in css
     assert 'html[data-theme="light"]' in css
 

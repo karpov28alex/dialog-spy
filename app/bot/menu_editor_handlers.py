@@ -15,6 +15,7 @@ settings = get_settings()
 CONTENT_KEY = "dialog_spy:user_menu_content"
 BUTTONS = {
     "show_miniapp": "Mini App",
+    "show_today": "Что сегодня",
     "show_stats": "Статистика",
     "show_subscription": "Подписка",
     "show_profile": "Профиль",

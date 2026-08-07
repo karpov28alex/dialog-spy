@@ -8,6 +8,7 @@ CONTENT_KEY = "dialog_spy:user_menu_content"
 DEFAULT_OFFER_URL = "https://mooncloud.ltd/spy/terms.html#free"
 VISIBLE_FIELDS = (
     "show_miniapp",
+    "show_today",
     "show_stats",
     "show_subscription",
     "show_profile",
@@ -47,6 +48,8 @@ def enhanced_user_keyboard(admin: bool = False) -> InlineKeyboardMarkup:
                 web_app=WebAppInfo(url=settings.mini_app_url),
             )
         ])
+    if config["show_today"] == "1":
+        rows.append([InlineKeyboardButton(text="✨ Что сегодня", callback_data="user:today")])
     if config["show_stats"] == "1":
         rows.append([InlineKeyboardButton(text="📊 Статистика", callback_data="user:stats")])
     if config["show_subscription"] == "1":
