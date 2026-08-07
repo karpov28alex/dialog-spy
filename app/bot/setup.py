@@ -22,6 +22,7 @@ from app.bot.statistics_share_card import (  # noqa: E402
     router as statistics_share_card_router,
     stats_keyboard,
 )
+from app.bot.engagement_handlers import router as engagement_router  # noqa: E402
 from app.bot import product_experience_handlers as product_experience_module  # noqa: E402
 from app.bot.product_experience_handlers import (  # noqa: E402
     branded_send_access_screen,
@@ -95,6 +96,7 @@ dispatcher.include_router(access_center_router)
 dispatcher.include_router(instruction_publisher_router)
 dispatcher.include_router(statistics_share_inline_router)
 dispatcher.include_router(statistics_share_card_router)
+dispatcher.include_router(engagement_router)
 
 # The access funnel remains the single owner of /start.
 dispatcher.include_router(access_funnel_router)
