@@ -12,7 +12,7 @@ from app.modules.account.schemas import (
     SubscriptionResponse,
     UserSettingsResponse,
 )
-from app.modules.account.service import AccountService
+from app.modules.account.service import AccountService, commerce_visible
 from app.services.access_funnel import channel_gate_passed, get_funnel_config
 
 router = APIRouter(tags=["account"])
@@ -39,6 +39,11 @@ async def require_channel_access(user: CurrentUser) -> None:
 
 def service(session: SessionDep, settings: SettingsDep) -> AccountService:
     return AccountService(session, bot, settings.telegram_bot_username)
+
+
+@router.get("/ui-config")
+async def ui_config() -> dict[str, bool]:
+    return {"commerce_visible": await commerce_visible()}
 
 
 @router.get("/me", response_model=ProfileResponse)
