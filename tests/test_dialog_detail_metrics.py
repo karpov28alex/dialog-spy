@@ -13,12 +13,13 @@ def test_dialog_detail_exposes_full_history_metrics() -> None:
 
 
 def test_thread_filters_use_real_message_state() -> None:
-    app = Path("app/static/miniapp/app.js").read_text(encoding="utf-8")
+    bridge = Path("app/static/miniapp/dialog-state.js").read_text(encoding="utf-8")
     suite = Path("app/static/miniapp/phantom-suite.js").read_text(encoding="utf-8")
-    assert "data-msg-edited" in app
-    assert "data-msg-deleted" in app
-    assert "data-msg-media" in app
+    index = Path("app/static/miniapp/index.html").read_text(encoding="utf-8")
+    assert "/app/dialog-state.js?v=0.17.8" in index
+    assert "__phantomDialogDetail" in bridge
+    assert "phantom:dialog-detail" in bridge
     assert "message.dataset.msgEdited === '1'" in suite
     assert "message.dataset.msgDeleted === '1'" in suite
     assert "message.dataset.msgMedia === '1'" in suite
-    assert "d.metrics" in suite
+    assert "detail()?.metrics" in suite
