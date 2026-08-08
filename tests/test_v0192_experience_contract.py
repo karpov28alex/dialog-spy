@@ -11,12 +11,13 @@ def test_screen_manager_deletes_previous_and_current_screen() -> None:
     assert "current_message_id" in source
     assert "dialog_spy:screen:" in source
     nav = read("app/bot/navigation_v019.py")
-    assert "await replace_callback(callback)" in nav
+    assert "await callback.message.delete()" in nav
+    assert "await clear_screen(" in nav
 
 
 def test_profile_has_connection_state_and_live_24h_pulse() -> None:
     source = read("app/bot/profile_card_handlers.py")
-    assert "Автоматизация чатов не подключена" in source
+    assert "Phantom ещё не подключён к автоматизации чатов" in source
     assert "За последние 24 часа" in source
     assert "active_today" in source
 
