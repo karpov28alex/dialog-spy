@@ -45,3 +45,21 @@ def test_access_gate_does_not_hide_informational_sections() -> None:
     assert "Все разделы Phantom уже доступны" in product
     assert "Статистика пока не собрана" in product
     assert "Phantom ещё не подключён к автоматизации чатов" in profile
+
+
+def test_recap_menu_has_no_share_dialogs_or_analytics_buttons() -> None:
+    source = Path("app/bot/engagement_handlers.py").read_text(encoding="utf-8")
+    keyboard = source[source.index("def _keyboard"):source.index("def _caption")]
+    assert "🚀 Поделиться" not in keyboard
+    assert "💬 Диалоги" not in keyboard
+    assert "📊 Аналитика" not in keyboard
+
+
+def test_recap_callbacks_delete_current_message_before_rendering_next() -> None:
+    source = Path("app/bot/engagement_handlers.py").read_text(encoding="utf-8")
+    assert "async def _replace(callback: CallbackQuery)" in source
+    for handler in ("today_callback", "recap_callback"):
+        block = source[source.index(f"async def {handler}"):]
+        block = block.split("\n\n@router", 1)[0]
+        assert "await _replace(callback)" in block
+        assert block.index("await _replace(callback)") < block.index("await _send(target")
