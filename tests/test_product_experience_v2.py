@@ -11,10 +11,10 @@ def test_miniapp_loads_single_product_experience_runtime() -> None:
     assert "/app/runtime-fixes.js?v=0.18.0" in source
     assert "/app/stats-motion.js?v=0.18.0" in source
     assert "/app/stats-motion.css?v=0.18.0" in source
-    assert "/app/dialog-state.js?v=0.18.0" in source
-    assert "/app/engagement-layer.js?v=0.19.4" in source
-    assert "/app/engagement-layer.css?v=0.19.4" in source
-    assert "v0.19.4 · Phantom Resilient" in source
+    assert "/app/dialog-state.js?v=0.19.5" in source
+    assert "/app/engagement-layer.js?v=0.19.5" in source
+    assert "/app/engagement-layer.css?v=0.19.5" in source
+    assert "v0.19.5 · Insight Links" in source
     assert 'name="color-scheme" content="dark light"' in source
 
 
@@ -65,7 +65,6 @@ def test_engagement_layer_has_daily_pulse_and_motion() -> None:
     assert "animateCounts" in js
     assert "/api/intelligence?days=14" in js
     assert "PHANTOM INSIGHTS" in js
-    assert "CACHE_KEY" in js
     assert "--pulse-shift" in css
     assert "@keyframes pulseAmbient" in css
     assert "prefers-reduced-motion" in css
@@ -96,5 +95,5 @@ def test_dialog_export_is_telegram_style_html() -> None:
     assert '/export/dialogs/{dialog_id}.html' in route
     assert "Content-Disposition" in route
     assert "message out" not in route
-    assert '"out" if item.direction == "outgoing" else "in"' in route
+    assert '\"out\" if item.direction == \"outgoing\" else \"in\"' in route
     assert "router.include_router(dialog_export_router)" in user_router

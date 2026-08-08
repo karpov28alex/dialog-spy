@@ -30,9 +30,10 @@ def test_miniapp_recap_is_single_runtime_and_uses_live_intelligence() -> None:
     index = Path("app/static/miniapp/index.html").read_text(encoding="utf-8")
     js = Path("app/static/miniapp/engagement-layer.js").read_text(encoding="utf-8")
     css = Path("app/static/miniapp/engagement-layer.css").read_text(encoding="utf-8")
+    dialog_state = Path("app/static/miniapp/dialog-state.js").read_text(encoding="utf-8")
     assert index.count("engagement-layer.js") == 1
     assert index.count("engagement-layer.css") == 1
-    assert "v0.19.4 · Phantom Resilient" in index
+    assert "v0.19.5 · Insight Links" in index
     assert "/api/intelligence?days=14" in js
     assert "data-recap=\"today\"" in js
     assert "data-recap=\"week\"" in js
@@ -43,6 +44,9 @@ def test_miniapp_recap_is_single_runtime_and_uses_live_intelligence() -> None:
     assert "MutationObserver" in js
     assert "readCache" in js
     assert "data-insights-refresh" in js
+    assert "phantom:focus-dialog" in js
+    assert "consumeFocusedDialog" in dialog_state
+    assert "button.click()" in dialog_state
     assert "prefers-reduced-motion" in css
     assert ".smart-story" in css
     assert "pulseShimmer" in css
