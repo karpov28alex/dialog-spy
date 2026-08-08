@@ -12,9 +12,9 @@ def test_miniapp_loads_single_product_experience_runtime() -> None:
     assert "/app/stats-motion.js?v=0.18.0" in source
     assert "/app/stats-motion.css?v=0.18.0" in source
     assert "/app/dialog-state.js?v=0.18.0" in source
-    assert "/app/engagement-layer.js?v=0.18.0" in source
-    assert "/app/engagement-layer.css?v=0.18.0" in source
-    assert "v0.19.3 · Phantom Insights" in source
+    assert "/app/engagement-layer.js?v=0.19.4" in source
+    assert "/app/engagement-layer.css?v=0.19.4" in source
+    assert "v0.19.4 · Phantom Resilient" in source
     assert 'name="color-scheme" content="dark light"' in source
 
 
@@ -65,6 +65,7 @@ def test_engagement_layer_has_daily_pulse_and_motion() -> None:
     assert "animateCounts" in js
     assert "/api/intelligence?days=14" in js
     assert "PHANTOM INSIGHTS" in js
+    assert "CACHE_KEY" in js
     assert "--pulse-shift" in css
     assert "@keyframes pulseAmbient" in css
     assert "prefers-reduced-motion" in css
