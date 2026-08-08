@@ -91,10 +91,22 @@
     document.body.appendChild(nav);
   }
 
+  function focusInsightDialog(){
+    const dialogId=sessionStorage.getItem('phantom:focus-dialog');
+    if(!dialogId)return;
+    const target=document.querySelector(`[data-dialog="${CSS.escape(dialogId)}"]`);
+    if(!target)return;
+    sessionStorage.removeItem('phantom:focus-dialog');
+    target.classList.add('ph5-insight-focus');
+    target.scrollIntoView({behavior:'smooth',block:'center'});
+    setTimeout(()=>target.click(),420);
+  }
+
   function enhanceDialogs(){
     if(!document.querySelector('.list [data-dialog]'))return;
     document.body.classList.add('ph5-dialogs-screen');
     addBottomNav('dialogs');
+    focusInsightDialog();
   }
 
   function cleanStaleNav(){
@@ -113,8 +125,7 @@
   }
 
   document.addEventListener('DOMContentLoaded',()=>{
-    const app=document.querySelector('#app');
-    if(app)new MutationObserver(()=>queueMicrotask(refreshUi)).observe(app,{childList:true,subtree:true});
+    const app=document.querySelector('#app');if(app)new MutationObserver(()=>queueMicrotask(refreshUi)).observe(app,{childList:true,subtree:true});
     refreshUi();
   });
 })();
