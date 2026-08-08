@@ -54,6 +54,14 @@ def _clean_text(value: str | None, fallback: str) -> str:
     return re.sub(r"\s+", " ", text).strip() or fallback
 
 
+def _fit_font(draw: ImageDraw.ImageDraw, text: str, max_width: int, start_size: int, min_size: int = 14, bold: bool = True) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    for size in range(start_size, min_size - 1, -1):
+        font = _font(size, bold)
+        if draw.textbbox((0, 0), text, font=font)[2] <= max_width:
+            return font
+    return _font(min_size, bold)
+
+
 def _load_logo() -> Image.Image:
     encoded = re.sub(r"\s+", "", LOGO_B64_PATH.read_text(encoding="utf-8"))
     return ImageOps.fit(Image.open(BytesIO(base64.b64decode(encoded, validate=True))).convert("RGB"), (230, 230), method=Image.Resampling.LANCZOS)
@@ -100,14 +108,23 @@ def _render_card(data: dict) -> bytes:
     image.paste(shadow, (76, 66), shadow); image.paste(logo, (76, 66))
     draw.text((340, 76), "PHANTOM", font=_font(58, True), fill="#ffffff")
     draw.text((342, 148), "ЛИЧНЫЙ ПРОФИЛЬ", font=_font(29, True), fill="#a95aff")
-    draw.text((342, 208), data["name"], font=_font(38, True), fill="#ffffff")
-    draw.text((344, 260), data["username"], font=_font(25), fill="#958aa8")
+    draw.text((342, 208), data["name"], font=_fit_font(draw, data["name"], 820, 38, 25), fill="#ffffff")
+    draw.text((344, 260), data["username"], font=_fit_font(draw, data["username"], 815, 25, 18, False), fill="#958aa8")
     status = "АВТОМАТИЗАЦИЯ ЧАТОВ ПОДКЛЮЧЕНА" if data["connected"] else "АВТОМАТИЗАЦИЯ ЧАТОВ НЕ ПОДКЛЮЧЕНА"
     status_color = "#51e49b" if data["connected"] else "#ff6d89"
-    draw.rounded_rectangle((342, 309, 930, 354), radius=20, fill="#151022", outline="#34214d", width=2); draw.ellipse((364, 323, 380, 339), fill=status_color); draw.text((398, 316), status, font=_font(20, True), fill=status_color)
+    status_font = _fit_font(draw, status, 520, 20, 15)
+    draw.rounded_rectangle((342, 309, 930, 354), radius=20, fill="#151022", outline="#34214d", width=2); draw.ellipse((364, 323, 380, 339), fill=status_color); draw.text((398, 316), status, font=status_font, fill=status_color)
     cards = [("ДИАЛОГИ", data["dialogs"]), ("СООБЩЕНИЯ", data["messages"]), ("ИЗМЕНЕНИЯ", data["edited"]), ("УДАЛЕНИЯ", data["deleted"]), ("СКРЫТЫЕ МЕДИА", data["protected"])]
-    for x, (label, value) in zip([64, 308, 552, 796, 1040], cards, strict=True):
-        draw.rounded_rectangle((x, 408, x + 212, 620), radius=28, fill="#151022", outline="#4a286f", width=2); draw.rounded_rectangle((x + 18, 428, x + 58, 468), radius=12, fill="#7020e8"); draw.ellipse((x + 30, 440, x + 46, 456), fill="#ffffff"); draw.text((x + 20, 486), str(value), font=_font(44, True), fill="#ffffff"); draw.text((x + 20, 554), label, font=_font(19, True), fill="#a89db8")
+    card_left, card_right, card_gap = 64, 1216, 16
+    card_width = (card_right - card_left - card_gap * 4) // 5
+    for index, (label, value) in enumerate(cards):
+        x = card_left + index * (card_width + card_gap)
+        draw.rounded_rectangle((x, 408, x + card_width, 620), radius=28, fill="#151022", outline="#4a286f", width=2)
+        draw.rounded_rectangle((x + 18, 428, x + 58, 468), radius=12, fill="#7020e8"); draw.ellipse((x + 30, 440, x + 46, 456), fill="#ffffff")
+        value_text = str(value)
+        draw.text((x + 20, 486), value_text, font=_fit_font(draw, value_text, card_width - 40, 44, 28), fill="#ffffff")
+        label_font = _fit_font(draw, label, card_width - 40, 19, 13)
+        draw.text((x + 20, 554), label, font=label_font, fill="#a89db8")
     engagement = min(100, data["edited"] * 4 + data["deleted"] * 5 + data["protected"] * 8)
     draw.text((70, 654), "АКТИВНОСТЬ АРХИВА", font=_font(19, True), fill="#958aa8"); draw.rounded_rectangle((306, 657, 1088, 680), radius=12, fill="#27163a")
     fill_width = int(782 * engagement / 100)
