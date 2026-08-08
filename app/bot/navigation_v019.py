@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from contextlib import suppress
+
 from aiogram import F, Router
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 from app.bot import user_handlers
 from app.bot.enhanced_user_menu import subscription_commerce_config
-from app.bot.screen_manager import replace_callback
+from app.bot.screen_manager import clear_screen
 from app.core.config import get_settings
 from app.services.dialog_insights import dialog_insights, format_dialog_insights
 
@@ -24,7 +26,10 @@ def back_profile(*rows: list[InlineKeyboardButton]) -> InlineKeyboardMarkup:
 
 
 async def _replace(callback: CallbackQuery) -> None:
-    await replace_callback(callback)
+    if callback.message:
+        with suppress(Exception):
+            await callback.message.delete()
+        await clear_screen(callback.message.chat.id, bot=callback.bot)
 
 
 @router.callback_query(F.data.in_({"user:profile", "v019:profile"}))
