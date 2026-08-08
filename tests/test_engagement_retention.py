@@ -32,7 +32,7 @@ def test_miniapp_recap_is_single_runtime_and_uses_live_intelligence() -> None:
     css = Path("app/static/miniapp/engagement-layer.css").read_text(encoding="utf-8")
     assert index.count("engagement-layer.js") == 1
     assert index.count("engagement-layer.css") == 1
-    assert "v0.19.3 · Phantom Insights" in index
+    assert "v0.19.4 · Phantom Resilient" in index
     assert "/api/intelligence?days=14" in js
     assert "data-recap=\"today\"" in js
     assert "data-recap=\"week\"" in js
@@ -41,5 +41,8 @@ def test_miniapp_recap_is_single_runtime_and_uses_live_intelligence() -> None:
     assert "signalRows" in js
     assert "story-detail" in js
     assert "MutationObserver" in js
+    assert "readCache" in js
+    assert "data-insights-refresh" in js
     assert "prefers-reduced-motion" in css
     assert ".smart-story" in css
+    assert "pulseShimmer" in css
