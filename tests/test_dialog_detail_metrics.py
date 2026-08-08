@@ -16,7 +16,7 @@ def test_thread_filters_use_real_message_state() -> None:
     bridge = Path("app/static/miniapp/dialog-state.js").read_text(encoding="utf-8")
     suite = Path("app/static/miniapp/phantom-suite.js").read_text(encoding="utf-8")
     index = Path("app/static/miniapp/index.html").read_text(encoding="utf-8")
-    assert "/app/dialog-state.js?v=0.18.0" in index
+    assert "/app/dialog-state.js?v=0.19.5" in index
     assert "__phantomDialogDetail" in bridge
     assert "phantom:dialog-detail" in bridge
     assert "message.dataset.msgEdited === '1'" in suite
