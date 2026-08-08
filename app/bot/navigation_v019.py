@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from contextlib import suppress
-
 from aiogram import F, Router
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
-from app.bot.admin_console import is_admin
-from app.bot.enhanced_user_menu import subscription_commerce_config
 from app.bot import user_handlers
+from app.bot.enhanced_user_menu import subscription_commerce_config
+from app.bot.screen_manager import replace_callback
 from app.core.config import get_settings
 
 router = Router(name="navigation-v019")
@@ -31,9 +29,7 @@ def back_profile(*rows: list[InlineKeyboardButton]) -> InlineKeyboardMarkup:
 
 
 async def _replace(callback: CallbackQuery) -> None:
-    if callback.message:
-        with suppress(Exception):
-            await callback.message.delete()
+    await replace_callback(callback)
 
 
 @router.callback_query(F.data.in_({"user:profile", "v019:profile"}))
@@ -88,11 +84,11 @@ async def settings_screen(callback: CallbackQuery) -> None:
 
 @router.callback_query(F.data == "v019:subscription")
 async def subscription_screen(callback: CallbackQuery) -> None:
-    await callback.answer()
     enabled, offer_url = subscription_commerce_config()
     if not enabled:
         await callback.answer("Раздел подписки отключён", show_alert=True)
         return
+    await callback.answer()
     await _replace(callback)
     if callback.message:
         text = await user_handlers._subscription_text(callback.from_user.id)
