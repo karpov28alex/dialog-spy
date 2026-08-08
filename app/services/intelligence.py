@@ -244,9 +244,9 @@ async def build_user_intelligence(
 
     signals: list[dict[str, Any]] = []
     if rising:
-        signals.append({"kind": "rising", "icon": "🚀", "title": "Общение ускорилось", "text": f"С {_name(type('R', (), rising)())} за 7 дней стало заметно больше сообщений: {rising['previous']} → {rising['recent']}.", "dialog_id": rising["dialog_id"]})
+        signals.append({"kind": "rising", "icon": "🚀", "title": "Общение ускорилось", "text": f"С {rising['name']} за 7 дней стало заметно больше сообщений: {rising['previous']} → {rising['recent']}.", "dialog_id": rising["dialog_id"]})
     if fading:
-        signals.append({"kind": "fading", "icon": "🌙", "title": "Диалог затих", "text": f"С {_name(type('R', (), fading)())} активность снизилась: {fading['previous']} → {fading['recent']} сообщений.", "dialog_id": fading["dialog_id"]})
+        signals.append({"kind": "fading", "icon": "🌙", "title": "Диалог затих", "text": f"С {fading['name']} активность снизилась: {fading['previous']} → {fading['recent']} сообщений.", "dialog_id": fading["dialog_id"]})
     if previous_messages and abs(weekly_change) >= 35:
         direction = "выше" if weekly_change > 0 else "ниже"
         signals.append({"kind": "pace", "icon": "⚡", "title": "Темп изменился", "text": f"Активность за последние 7 дней на {abs(weekly_change)}% {direction} предыдущей недели."})

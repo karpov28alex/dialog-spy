@@ -12,6 +12,14 @@ def test_intelligence_builds_behavioral_signals() -> None:
     assert '"signals": safe_signals' in source
 
 
+def test_signal_titles_use_materialized_names_without_fake_row_objects() -> None:
+    source = read("app/services/intelligence.py")
+    assert "type('R', (), rising)" not in source
+    assert "type('R', (), fading)" not in source
+    assert "rising['name']" in source
+    assert "fading['name']" in source
+
+
 def test_bot_insights_include_period_comparison_and_dialog_changes() -> None:
     source = read("app/services/dialog_insights.py")
     assert "weekly_change" in source
