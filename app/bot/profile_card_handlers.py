@@ -121,7 +121,7 @@ async def _send_profile(target: Message, telegram_id: int) -> None:
     if data is None:
         await target.answer("Профиль ещё не создан. Отправьте /start.", reply_markup=_profile_keyboard()); return
     if not data["connected"]:
-        await target.answer("<b>👤 Ваш профиль Phantom</b>\n\n🔴 Автоматизация чатов не подключена. Архив не получает новые события.\n\nНажмите «📖 Инструкция», чтобы подключить Phantom.", reply_markup=_profile_keyboard()); return
+        await target.answer("<b>👤 Ваш профиль Phantom</b>\n\nPhantom ещё не подключён к автоматизации чатов. Архив не получает новые события.\n\nНажмите «📖 Инструкция», чтобы подключить Phantom.", reply_markup=_profile_keyboard()); return
     pulse = f"⚡ За последние 24 часа: <b>{data['today']}</b> сообщений в <b>{data['active_today']}</b> диалогах."
     try:
         await target.answer_photo(BufferedInputFile(_render_card(data), filename="phantom-profile.png"), caption=f"<b>Ваш профиль Phantom</b>\n\n{pulse}\nАрхив работает и обновляется автоматически.", reply_markup=_profile_keyboard())
