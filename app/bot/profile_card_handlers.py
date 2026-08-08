@@ -98,11 +98,11 @@ def _gradient_background(width: int, height: int) -> Image.Image:
 
 
 def _render_card(data: dict) -> bytes:
-    width, height = 1280, 760
+    width, height = 1280, 680
     image = _gradient_background(width, height)
     draw = ImageDraw.Draw(image)
-    draw.rounded_rectangle((38, 34, 1242, 726), radius=50, fill="#0b0717", outline="#822cff", width=5)
-    draw.rounded_rectangle((58, 54, 1222, 706), radius=42, outline="#3c1a68", width=2)
+    draw.rounded_rectangle((38, 34, 1242, 646), radius=50, fill="#0b0717", outline="#822cff", width=5)
+    draw.rounded_rectangle((58, 54, 1222, 626), radius=42, outline="#3c1a68", width=2)
     logo = _load_logo()
     shadow = Image.new("RGBA", logo.size, (0, 0, 0, 0)); shadow.paste(logo.convert("RGBA"), (0, 0)); shadow = shadow.filter(ImageFilter.GaussianBlur(15))
     image.paste(shadow, (76, 66), shadow); image.paste(logo, (76, 66))
@@ -119,17 +119,12 @@ def _render_card(data: dict) -> bytes:
     card_width = (card_right - card_left - card_gap * 4) // 5
     for index, (label, value) in enumerate(cards):
         x = card_left + index * (card_width + card_gap)
-        draw.rounded_rectangle((x, 408, x + card_width, 620), radius=28, fill="#151022", outline="#4a286f", width=2)
+        draw.rounded_rectangle((x, 408, x + card_width, 600), radius=28, fill="#151022", outline="#4a286f", width=2)
         draw.rounded_rectangle((x + 18, 428, x + 58, 468), radius=12, fill="#7020e8"); draw.ellipse((x + 30, 440, x + 46, 456), fill="#ffffff")
         value_text = str(value)
         draw.text((x + 20, 486), value_text, font=_fit_font(draw, value_text, card_width - 40, 44, 28), fill="#ffffff")
         label_font = _fit_font(draw, label, card_width - 40, 19, 13)
         draw.text((x + 20, 554), label, font=label_font, fill="#a89db8")
-    engagement = min(100, data["edited"] * 4 + data["deleted"] * 5 + data["protected"] * 8)
-    draw.text((70, 654), "АКТИВНОСТЬ АРХИВА", font=_font(19, True), fill="#958aa8"); draw.rounded_rectangle((306, 657, 1088, 680), radius=12, fill="#27163a")
-    fill_width = int(782 * engagement / 100)
-    if fill_width > 0: draw.rounded_rectangle((306, 657, 306 + fill_width, 680), radius=12, fill="#8d35ff")
-    draw.text((1110, 650), f"{engagement}%", font=_font(22, True), fill="#d8bfff")
     output = BytesIO(); image.save(output, format="PNG", optimize=True); return output.getvalue()
 
 
