@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from contextlib import suppress
 from datetime import datetime, timedelta
 from io import BytesIO
 
 from aiogram import F, Router
 from aiogram.filters import Command
-from aiogram.types import BufferedInputFile, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, WebAppInfo
+from aiogram.types import BufferedInputFile, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from sqlalchemy import distinct, func, select
 
@@ -105,19 +106,10 @@ async def _recap(telegram_id: int, *, days: int) -> dict | None:
         top_name = top.peer_name or (f"@{top.peer_username}" if top.peer_username else "Диалог")
         top_messages = int(top.n or 0)
     return {
-        "days": days,
-        "messages": messages,
-        "previous": previous,
-        "trend": trend,
-        "edited": edited,
-        "deleted": deleted,
-        "media": media,
-        "protected": protected,
-        "active_dialogs": active_dialogs,
-        "top_name": top_name[:28],
-        "top_messages": top_messages,
-        "streak": _streak(recent_days),
-        "referral_url": f"https://t.me/{settings.telegram_bot_username}?start=ref_{code}",
+        "days": days, "messages": messages, "previous": previous, "trend": trend,
+        "edited": edited, "deleted": deleted, "media": media, "protected": protected,
+        "active_dialogs": active_dialogs, "top_name": top_name[:28], "top_messages": top_messages,
+        "streak": _streak(recent_days), "referral_url": f"https://t.me/{settings.telegram_bot_username}?start=ref_{code}",
     }
 
 
@@ -167,11 +159,7 @@ def _keyboard(admin: bool, *, days: int, share: bool = False) -> InlineKeyboardM
         return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="👻 Получить свою статистику", url="https://t.me/" + settings.telegram_bot_username)]])
     other = 7 if days == 1 else 1
     other_text = "📅 Итоги недели" if days == 1 else "☀️ Сегодня"
-    rows = [
-        [InlineKeyboardButton(text="✨ Обновить", callback_data=f"engagement:recap:{days}"), InlineKeyboardButton(text=other_text, callback_data=f"engagement:recap:{other}")],
-        [InlineKeyboardButton(text="🚀 Поделиться", callback_data=f"engagement:share:{days}")],
-        [InlineKeyboardButton(text="💬 Диалоги", web_app=WebAppInfo(url=f"{settings.mini_app_url}?screen=dialogs")), InlineKeyboardButton(text="📊 Аналитика", web_app=WebAppInfo(url=f"{settings.mini_app_url}?screen=stats"))],
-    ]
+    rows = [[InlineKeyboardButton(text="✨ Обновить", callback_data=f"engagement:recap:{days}"), InlineKeyboardButton(text=other_text, callback_data=f"engagement:recap:{other}")]]
     rows.extend([list(row) for row in enhanced_user_keyboard(admin).inline_keyboard])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -190,11 +178,7 @@ def _caption(data: dict, *, shared: bool = False) -> str:
     if not facts:
         facts.append("✨ Спокойный период — архив продолжает обновляться")
     if shared:
-        return (
-            f"<b>👻 Моя статистика Phantom {period}</b>\n\n"
-            + "\n".join(facts[:4])
-            + f"\n\nХочешь увидеть, кто чаще пишет, удаляет и меняет сообщения у тебя?\n👉 {data['referral_url']}"
-        )
+        return f"<b>👻 Моя статистика Phantom {period}</b>\n\n" + "\n".join(facts[:4]) + f"\n\nХочешь увидеть, кто чаще пишет, удаляет и меняет сообщения у тебя?\n👉 {data['referral_url']}"
     return f"<b>👻 Phantom {'Daily' if data['days'] == 1 else 'Weekly'}</b>\n\n" + "\n".join(facts[:4]) + "\n\n<blockquote>Открой Mini App — там вся история и детали.</blockquote>"
 
 
@@ -206,6 +190,12 @@ async def _send(target: Message, telegram_id: int, *, days: int = 1, shared: boo
         return
     filename = "phantom-daily.png" if days == 1 else "phantom-weekly.png"
     await target.answer_photo(BufferedInputFile(_render(data), filename=filename), caption=_caption(data, shared=shared), reply_markup=_keyboard(admin, days=days, share=shared))
+
+
+async def _replace(callback: CallbackQuery) -> None:
+    if callback.message:
+        with suppress(Exception):
+            await callback.message.delete()
 
 
 @router.message(Command("today"))
@@ -224,7 +214,9 @@ async def week_command(message: Message) -> None:
 async def today_callback(callback: CallbackQuery) -> None:
     await callback.answer("Обновляю Daily…")
     if callback.message:
-        await _send(callback.message, callback.from_user.id, days=1)
+        target = callback.message
+        await _replace(callback)
+        await _send(target, callback.from_user.id, days=1)
 
 
 @router.callback_query(F.data.startswith("engagement:recap:"))
@@ -232,7 +224,9 @@ async def recap_callback(callback: CallbackQuery) -> None:
     days = 7 if callback.data and callback.data.endswith(":7") else 1
     await callback.answer("Собираю итоги…")
     if callback.message:
-        await _send(callback.message, callback.from_user.id, days=days)
+        target = callback.message
+        await _replace(callback)
+        await _send(target, callback.from_user.id, days=days)
 
 
 @router.callback_query(F.data.startswith("engagement:share:"))
@@ -240,4 +234,6 @@ async def share_callback(callback: CallbackQuery) -> None:
     days = 7 if callback.data and callback.data.endswith(":7") else 1
     await callback.answer("Готовлю карточку для пересылки…")
     if callback.message:
-        await _send(callback.message, callback.from_user.id, days=days, shared=True)
+        target = callback.message
+        await _replace(callback)
+        await _send(target, callback.from_user.id, days=days, shared=True)
