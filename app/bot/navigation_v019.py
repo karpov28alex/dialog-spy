@@ -104,9 +104,8 @@ async def subscription_screen(callback: CallbackQuery) -> None:
 
 @router.callback_query(F.data.in_({"help", "v019:help"}))
 async def help_screen(callback: CallbackQuery) -> None:
-    from app.bot.handlers import instruction_content
+    from app.bot.instruction_publisher import send_public_instruction
     await callback.answer()
     await _replace(callback)
     if callback.message:
-        content = await instruction_content()
-        await callback.message.answer(content["text"], reply_markup=back_profile())
+        await send_public_instruction(callback.message)
