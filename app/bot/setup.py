@@ -20,6 +20,7 @@ from app.bot.statistics_share_inline import router as statistics_share_inline_ro
 from app.bot.statistics_share_card import router as statistics_share_card_router, stats_keyboard  # noqa: E402
 from app.bot.engagement_handlers import router as engagement_router  # noqa: E402
 from app.bot.navigation_v019 import router as navigation_v019_router  # noqa: E402
+from app.bot.health_handlers import router as health_router  # noqa: E402
 from app.bot import product_experience_handlers as product_experience_module  # noqa: E402
 from app.bot.product_experience_handlers import branded_send_access_screen, router as product_experience_router  # noqa: E402
 from app.bot import user_experience_handlers as user_experience_module  # noqa: E402
@@ -61,8 +62,8 @@ dispatcher.callback_query.register(pay_callback, F.data == "impaya:pay")
 
 dispatcher.include_router(channel_check_override_router)
 dispatcher.include_router(access_center_router)
-# v0.19 owns user navigation before older handlers can append duplicate messages.
 dispatcher.include_router(navigation_v019_router)
+dispatcher.include_router(health_router)
 dispatcher.include_router(instruction_publisher_router)
 dispatcher.include_router(statistics_share_inline_router)
 dispatcher.include_router(statistics_share_card_router)
