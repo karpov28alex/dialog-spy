@@ -14,7 +14,7 @@ def test_miniapp_loads_single_product_experience_runtime() -> None:
     assert "/app/dialog-state.js?v=0.18.0" in source
     assert "/app/engagement-layer.js?v=0.18.0" in source
     assert "/app/engagement-layer.css?v=0.18.0" in source
-    assert "v0.19.0 · Phantom Navigation" in source
+    assert "v0.19.3 · Phantom Insights" in source
     assert 'name="color-scheme" content="dark light"' in source
 
 
@@ -63,7 +63,8 @@ def test_engagement_layer_has_daily_pulse_and_motion() -> None:
     assert "PHANTOM PULSE" in js
     assert "Сегодня в архиве" in js
     assert "animateCounts" in js
-    assert "/api/intelligence?days=7" in js
+    assert "/api/intelligence?days=14" in js
+    assert "PHANTOM INSIGHTS" in js
     assert "--pulse-shift" in css
     assert "@keyframes pulseAmbient" in css
     assert "prefers-reduced-motion" in css
